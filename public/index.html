@@ -206,6 +206,27 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
   #consumo > .custom-card:last-child { margin-top:24px; }
 }
 
+
+/* HISTÓRICO DE CONSUMO: CENTRALIZAÇÃO SEM CORTE NAS BORDAS */
+#consumo { box-sizing:border-box; width:100%; max-width:100%; overflow-x:hidden; }
+#consumo > .custom-card { box-sizing:border-box; width:100%; max-width:1500px; margin-left:auto; margin-right:auto; overflow:hidden; }
+#consumo > .custom-card:last-child { padding-left:clamp(10px,2vw,24px) !important; padding-right:clamp(10px,2vw,24px) !important; }
+#consumo > .custom-card:last-child .table-responsive { width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; margin:0 auto; }
+#consumo > .custom-card:last-child table { width:100%; min-width:0 !important; table-layout:fixed; }
+#consumo > .custom-card:last-child th, #consumo > .custom-card:last-child td { box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; word-break:break-word; font-size:clamp(.62rem,.72vw,.82rem); padding:8px 5px; vertical-align:middle; }
+#consumo > .custom-card:last-child th:nth-child(1),#consumo > .custom-card:last-child td:nth-child(1){width:7%}
+#consumo > .custom-card:last-child th:nth-child(2),#consumo > .custom-card:last-child td:nth-child(2){width:10%}
+#consumo > .custom-card:last-child th:nth-child(3),#consumo > .custom-card:last-child td:nth-child(3){width:13%}
+#consumo > .custom-card:last-child th:nth-child(4),#consumo > .custom-card:last-child td:nth-child(4){width:11%}
+#consumo > .custom-card:last-child th:nth-child(5),#consumo > .custom-card:last-child td:nth-child(5){width:8%}
+#consumo > .custom-card:last-child th:nth-child(6),#consumo > .custom-card:last-child td:nth-child(6){width:11%}
+#consumo > .custom-card:last-child th:nth-child(7),#consumo > .custom-card:last-child td:nth-child(7){width:6%}
+#consumo > .custom-card:last-child th:nth-child(8),#consumo > .custom-card:last-child td:nth-child(8){width:10%}
+#consumo > .custom-card:last-child th:nth-child(9),#consumo > .custom-card:last-child td:nth-child(9){width:7%}
+#consumo > .custom-card:last-child th:nth-child(10),#consumo > .custom-card:last-child td:nth-child(10){width:10%}
+#consumo > .custom-card:last-child th:nth-child(11),#consumo > .custom-card:last-child td:nth-child(11){width:7%}
+@media(max-width:700px){#consumo > .custom-card:last-child th,#consumo > .custom-card:last-child td{font-size:.58rem;padding:5px 2px}#consumo > .custom-card:last-child .btn{padding:2px 4px;font-size:.6rem}}
+
 </style>
 </head>
 <body>
@@ -484,6 +505,28 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// ATUALIZAÇÃO GLOBAL IMEDIATA DAS TELAS
+let atualizacaoVisualAgendada=false;
+function atualizarTodasAsTelasAgora(){
+ if(atualizacaoVisualAgendada)return;
+ atualizacaoVisualAgendada=true;
+ const executar=()=>{ atualizacaoVisualAgendada=false; try{
+  if(typeof carregarEstoque==='function')carregarEstoque();
+  if(typeof filtrarEstoque==='function')filtrarEstoque();
+  if(typeof verificarEstoqueBaixo==='function')verificarEstoqueBaixo();
+  if(typeof carregarConsumo==='function')carregarConsumo();
+  if(typeof carregarDados==='function')carregarDados();
+  if(typeof atualizarDashboard==='function')atualizarDashboard();
+  if(typeof atualizarGraficosDashboard==='function')atualizarGraficosDashboard();
+  if(typeof atualizarSugestoes==='function')atualizarSugestoes();
+  if(typeof atualizarListaTecnicos==='function')atualizarListaTecnicos();
+  if(typeof atualizarListaClientes==='function')atualizarListaClientes();
+  if(typeof atualizarListaModelos==='function')atualizarListaModelos();
+ }catch(e){console.warn('Atualização imediata das telas:',e);} };
+ if(window.requestAnimationFrame)window.requestAnimationFrame(executar); else setTimeout(executar,0);
+}
+window.addEventListener('estoque:atualizado',atualizarTodasAsTelasAgora);
+
 // DADOS
 const defaultStatus = [
 { id: 1, nome: 'Em Andamento', cor: '#0dcaf0' },
@@ -546,7 +589,7 @@ atualizarGrafico();
 // NAVEGAÇÃO
 function alternarMenu(){ const sidebar=document.querySelector('.sidebar'); const main=document.querySelector('.main-content'); if(!sidebar||!main)return; const recolhido=sidebar.classList.toggle('collapsed'); main.classList.toggle('menu-collapsed',recolhido); const botao=sidebar.querySelector('.sidebar-toggle i'); if(botao) botao.className=recolhido?'fa-solid fa-chevron-right':'fa-solid fa-chevron-left'; localStorage.setItem('menu_recolhido',recolhido?'1':'0'); }
 function restaurarEstadoMenu(){ const sidebar=document.querySelector('.sidebar'); const main=document.querySelector('.main-content'); if(!sidebar||!main)return; const recolhido=localStorage.getItem('menu_recolhido')==='1'; sidebar.classList.toggle('collapsed',recolhido); main.classList.toggle('menu-collapsed',recolhido); const botao=sidebar.querySelector('.sidebar-toggle i'); if(botao) botao.className=recolhido?'fa-solid fa-chevron-right':'fa-solid fa-chevron-left'; }
-function showSection(sectionId) {
+function showSection(sectionId) { atualizarTodasAsTelasAgora();
 if(!usuarioLogado) return;
 const sectionPermission = {
   cadastro:'cadastro_equipamento',
@@ -672,7 +715,7 @@ function atualizarSessaoComPermissoesAtuais(){
  const tecnicoAtual=getTecnicosDB().find(t=>t.id==usuarioLogado.tecnicoId);
  if(tecnicoAtual){ usuarioLogado.permissoes=normalizarPermissoes(tecnicoAtual); localStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); }
 }
-function saveDB(data) { localStorage.setItem('equipamentos_db', JSON.stringify(data)); sincronizarEstadoNeon(); registrarAtividade('Equipamentos atualizados','A lista de equipamentos foi alterada','Equipamentos'); carregarDados(); atualizarGrafico(); atualizarSugestoes(); }
+function saveDB(data) { localStorage.setItem('equipamentos_db', JSON.stringify(data)); window.dispatchEvent(new Event('estoque:atualizado')); sincronizarEstadoNeon(); registrarAtividade('Equipamentos atualizados','A lista de equipamentos foi alterada','Equipamentos'); carregarDados(); atualizarGrafico(); atualizarSugestoes(); }
 function getStatusDB() { const data = localStorage.getItem('equipamentos_status'); return data ? JSON.parse(data) : defaultStatus; }
 function saveStatusDB(data) { localStorage.setItem('equipamentos_status', JSON.stringify(data)); registrarAtividade('Status alterado','A lista de status dos equipamentos foi atualizada','Configurações'); }
 function normalizarCodigoBarras(valor){
@@ -706,7 +749,7 @@ function getEstoqueDB() {
  return estoque;
 }
 function atualizarTelaEstoqueAgora(){ try{ filtrarEstoque(); verificarEstoqueBaixo(); renderizarEtiquetas(); atualizarDashboard(); atualizarGraficosDashboard(); }catch(e){ console.warn('Atualização visual do estoque:',e); } }
-function saveEstoqueDB(data) { const normalizado=(data||[]).map(p=>({...p,quantidade:Number(p.quantidade)||0,minimo:Number(p.minimo)||1})); localStorage.setItem('estoque_db', JSON.stringify(normalizado)); sincronizarEstadoNeon(); registrarAtividade('Estoque movimentado','O estoque foi atualizado','Estoque'); carregarEstoque(); atualizarTelaEstoqueAgora(); atualizarSugestoes(); }
+function saveEstoqueDB(data) { const normalizado=(data||[]).map(p=>({...p,quantidade:Number(p.quantidade)||0,minimo:Number(p.minimo)||1})); localStorage.setItem('estoque_db', JSON.stringify(normalizado)); window.dispatchEvent(new Event('estoque:atualizado')); sincronizarEstadoNeon(); registrarAtividade('Estoque movimentado','O estoque foi atualizado','Estoque'); carregarEstoque(); atualizarTelaEstoqueAgora(); atualizarSugestoes(); }
 function normalizarCodigoRetirada(valor){
  const digitos=String(valor||'').replace(/\D/g,'');
  return /^\d{5}$/.test(digitos) ? digitos : null;
@@ -731,9 +774,9 @@ function getConsumoDB() {
  if(alterou) localStorage.setItem('consumo_db',JSON.stringify(consumo));
  return consumo;
 }
-function saveConsumoDB(data) { localStorage.setItem('consumo_db', JSON.stringify(data)); sincronizarEstadoNeon(); registrarAtividade('Consumo registrado','O histórico de consumo foi atualizado','Consumo'); carregarConsumo(); }
+function saveConsumoDB(data) { localStorage.setItem('consumo_db', JSON.stringify(data)); window.dispatchEvent(new Event('estoque:atualizado')); sincronizarEstadoNeon(); registrarAtividade('Consumo registrado','O histórico de consumo foi atualizado','Consumo'); carregarConsumo(); }
 function getTecnicosDB() { return JSON.parse(localStorage.getItem('tecnicos_db')) || []; }
-function saveTecnicosDB(data) { localStorage.setItem('tecnicos_db', JSON.stringify(data)); registrarAtividade('Técnicos atualizados','O cadastro de técnicos foi alterado','Técnicos'); atualizarListaTecnicos(); renderTabelaSenhasTecnicos(); }
+function saveTecnicosDB(data) { localStorage.setItem('tecnicos_db', JSON.stringify(data)); window.dispatchEvent(new Event('estoque:atualizado')); registrarAtividade('Técnicos atualizados','O cadastro de técnicos foi alterado','Técnicos'); atualizarListaTecnicos(); renderTabelaSenhasTecnicos(); }
 
 // AUTENTICAÇÃO E PERMISSÕES
 const PERMISSOES_TECNICO = [
@@ -1998,24 +2041,33 @@ modalAjusteEstoque.show();
 }
 }
 
-function salvarAjusteEstoque() { const tipoAtual = document.getElementById('ajusteTipo').value; const permAtual = tipoAtual==='entrada'?'estoque_entrada':(tipoAtual==='saida'?'estoque_saida':'estoque_ajuste'); if(!exigirPermissao(permAtual,'Você não tem permissão para este tipo de movimento no estoque.')) return;
-const id = document.getElementById('ajustePecaId').value;
-const tipo = document.getElementById('ajusteTipo').value;
-const quantidade = Number.parseInt(document.getElementById('ajusteQuantidade').value, 10);
-const motivo = document.getElementById('ajusteMotivo').value.trim();
-if(isNaN(quantidade)) return alert('Informe uma quantidade válida.');
-if(tipo === 'ajuste') { if(quantidade < 0) return alert('Quantidade não pode ser negativa.'); }
-else if(quantidade <= 0) return alert('Quantidade deve ser maior que zero.');
-const estoque = getEstoqueDB(); const idx = estoque.findIndex(p => p.id == id);
-if(idx === -1) return alert('Peça não encontrada no estoque!');
- const saldoAntes = Number(estoque[idx].quantidade) || 0;
- if(tipo === 'entrada') { estoque[idx].quantidade = saldoAntes + quantidade; }
- else if(tipo === 'saida') { if(saldoAntes < quantidade) { return alert('Quantidade insuficiente em estoque!'); } estoque[idx].quantidade = saldoAntes - quantidade; }
- else if(tipo === 'ajuste') { estoque[idx].quantidade = quantidade; }
- const nomeMovimento=estoque[idx].nome;
- if(tipo==='saida'){ const consumos=getConsumoDB(); const hoje=new Date().toISOString().slice(0,10); const tecnicoAtual=usuarioLogado&&usuarioLogado.tecnicoId?usuarioLogado.tecnicoId:''; consumos.push({id:Date.now(),codigoRetirada:gerarCodigoRetiradaUnico(consumos),pecaId:estoque[idx].id,pecaCodigo:estoque[idx].codigo||'',pecaCodigoBarras:obterCodigoBarrasEstoque(estoque[idx]),pecaNome:estoque[idx].nome||'',pecaModelo:estoque[idx].modelo||'',quantidade,tecnicoId:tecnicoAtual,os:'',data:hoje,obs:motivo||'Saída manual pelo estoque'}); saveConsumoDB(consumos); }
- const rotuloMovimento=tipo==='entrada'?'Peça adicionada':(tipo==='saida'?'Peça removida':'Estoque ajustado');
- saveEstoqueDB(estoque); registrarAtividade(rotuloMovimento,nomeMovimento+'; quantidade movimentada: '+quantidade+(motivo?' ; motivo: '+motivo:''),'Estoque'); modalAjusteEstoque.hide(); alert('Estoque atualizado com sucesso!');
+function salvarAjusteEstoque() {
+ const tipo=document.getElementById('ajusteTipo')?.value||'entrada';
+ const permissao=tipo==='entrada'?'estoque_entrada':(tipo==='saida'?'estoque_saida':'estoque_ajuste');
+ if(!exigirPermissao(permissao,'Você não tem permissão para este tipo de movimento no estoque.'))return;
+ const id=document.getElementById('ajustePecaId')?.value;
+ const quantidade=Number.parseInt(document.getElementById('ajusteQuantidade')?.value,10);
+ const motivo=(document.getElementById('ajusteMotivo')?.value||'').trim();
+ if(!Number.isInteger(quantidade)||quantidade<0)return alert('Informe uma quantidade válida.');
+ if(tipo!=='ajuste'&&quantidade<=0)return alert('Quantidade deve ser maior que zero.');
+ const estoque=getEstoqueDB(); const idx=estoque.findIndex(p=>String(p.id)===String(id));
+ if(idx<0)return alert('Peça não encontrada no estoque!');
+ const saldoAntes=Number(estoque[idx].quantidade)||0;
+ if(tipo==='entrada')estoque[idx].quantidade=saldoAntes+quantidade;
+ else if(tipo==='saida'){if(saldoAntes<quantidade)return alert('Quantidade insuficiente em estoque!');estoque[idx].quantidade=saldoAntes-quantidade;}
+ else estoque[idx].quantidade=quantidade;
+ estoque[idx].quantidade=Number(estoque[idx].quantidade)||0;
+ const nome=estoque[idx].nome||'Peça';
+ if(tipo==='saida'){
+  const consumos=getConsumoDB();
+  consumos.push({id:Date.now(),codigoRetirada:gerarCodigoRetiradaUnico(consumos),pecaId:estoque[idx].id,pecaCodigo:estoque[idx].codigo||'',pecaCodigoBarras:obterCodigoBarrasEstoque(estoque[idx]),pecaNome:nome,pecaModelo:estoque[idx].modelo||'',quantidade,tecnicoId:usuarioLogado?.tecnicoId||'',os:'',data:new Date().toISOString().slice(0,10),obs:motivo||'Saída manual pelo estoque'});
+  saveConsumoDB(consumos);
+ }
+ saveEstoqueDB(estoque);
+ if(modalAjusteEstoque)modalAjusteEstoque.hide();
+ setTimeout(()=>{ carregarEstoque(); filtrarEstoque(); verificarEstoqueBaixo(); atualizarSugestoes(); atualizarDashboard(); atualizarGraficosDashboard(); },0);
+ registrarAtividade(tipo==='entrada'?'Peça adicionada':(tipo==='saida'?'Peça removida':'Estoque ajustado'),nome+'; saldo atualizado para: '+estoque[idx].quantidade+(motivo?' ; motivo: '+motivo:''),'Estoque');
+ alert('Estoque atualizado imediatamente! Saldo de '+nome+': '+estoque[idx].quantidade+' unidade(s).');
 }
 
 function excluirPeca(id) { if(!exigirPermissao('estoque_excluir','Você não tem permissão para excluir peças do estoque.')) return; if(confirm('Tem certeza que deseja excluir esta peça?')) { const estoque = getEstoqueDB(); const item=estoque.find(p=>String(p.id)===String(id)); saveEstoqueDB(estoque.filter(p => String(p.id) !== String(id))); registrarAtividade('Peça excluída',item ? item.nome : 'Peça ID '+id,'Estoque'); atualizarSugestoes(); } }
@@ -2109,7 +2161,7 @@ function imprimirRelatorioEstoque() {
 }
 
 // CONSUMO
-function carregarConsumo() { atualizarSugestoes(); filtrarHistoricoConsumo(); }
+function carregarConsumo() { atualizarSugestoes(); const registros=JSON.parse(localStorage.getItem('consumo_db')||'[]'); if(registros.length) localStorage.setItem('consumo_db',JSON.stringify(registros)); filtrarHistoricoConsumo(); }
 function normalizarTextoConsumo(valor) { return String(valor ?? '').replace(/\s*\(Modelo:.*\)\s*$/i, '').replace(/^[- ]+/, '').trim().toLowerCase(); }
 function encontrarPecaConsumo(valor, estoque) {
  const v=normalizarTextoConsumo(valor); if(!v) return null;
@@ -2120,7 +2172,7 @@ function filtrarHistoricoConsumo() {
  const el=id=>document.getElementById(id); const val=id=>(el(id)?.value||'');
  const fDataInicio=val('filtroConsumoDataInicio'), fDataFim=val('filtroConsumoDataFim');
  const fPeca=val('filtroConsumoPeca').toLowerCase(), fCodigo=val('filtroConsumoCodigo').toLowerCase(), fRetirada=val('filtroConsumoRetirada').trim();
- const fTecnico=tecnicoPodeVerTodos() ? val('filtroConsumoTecnico') : (usuarioLogado ? String(usuarioLogado.tecnicoId) : '');
+ const fTecnico=(usuarioLogado && !tecnicoPodeVerTodos()) ? String(usuarioLogado.tecnicoId) : val('filtroConsumoTecnico');
  const filtrado=consumo.filter(item=>{
   const data=String(item.data||'');
   return (!fDataInicio||data>=fDataInicio)&&(!fDataFim||data<=fDataFim)&&String(item.pecaNome||'').toLowerCase().includes(fPeca)&&String(item.pecaCodigo||'').toLowerCase().includes(fCodigo)&&(!fRetirada||String(item.codigoRetirada||'').includes(fRetirada))&&(fTecnico===''||String(item.tecnicoId)===String(fTecnico));
