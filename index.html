@@ -472,7 +472,7 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 
 <div class="modal fade" id="modalEtiquetas" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="etiquetasImpressao"><div id="etiquetaPrintBody" class="etiqueta-print-grid"></div></div></div></div></div></div></div>
 
-<div class="modal fade" id="modalRelatorioEstoque" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="relatorioEstoque"><div class="relatorio-header"><h1><i class="fa-solid fa-boxes"></i> RELATÓRIO DE ESTOQUE</h1><p>Sistema de Gestão de Peças</p></div><div class="relatorio-info"><div class="info-card"><label>📅 Data</label><span id="printEstoqueData"></span></div><div class="info-card"><label>📦 Total Peças</label><span id="printEstoqueTotal"></span></div><div class="info-card"><label>⚠️ Estoque Baixo</label><span id="printEstoqueBaixo"></span></div><div class="info-card"><label>🔢 Documento</label><span id="printEstoqueDoc"></span></div></div><table class="relatorio-table"><thead><tr><th>Código</th><th>Código de barras</th><th>Modelo</th><th>Peça</th><th>Prateleira</th><th>Quantidade</th><th>Mínimo</th><th>Status</th></tr></thead><tbody id="printEstoqueBody"></tbody></table><div class="relatorio-footer"><p>Relatório gerado automaticamente</p><p id="printEstoqueFooter"></p></div></div></div></div></div></div>
+<div class="modal fade" id="modalRelatorioEstoque" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="relatorioEstoque"><div class="relatorio-header"><h1><i class="fa-solid fa-boxes"></i> RELATÓRIO DE ESTOQUE</h1><p>Sistema de Gestão de Peças</p></div><div class="relatorio-info"><div class="info-card"><label>📅 Data</label><span id="printEstoqueData"></span></div><div class="info-card"><label>📦 Total Peças</label><span id="printEstoqueTotal"></span></div><div class="info-card"><label>⚠️ Estoque Baixo</label><span id="printEstoqueBaixo"></span></div><div class="info-card"><label>🔢 Documento</label><span id="printEstoqueDoc"></span></div></div><table class="relatorio-table"><thead><tr><th>Código</th><th>Modelo</th><th>Peça</th><th>Prateleira</th><th>Quantidade</th><th>Mínimo</th><th>Status</th></tr></thead><tbody id="printEstoqueBody"></tbody></table><div class="relatorio-footer"><p>Relatório gerado automaticamente</p><p id="printEstoqueFooter"></p></div></div></div></div></div></div>
 
 <div class="modal fade" id="modalComprovanteConsumo" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="comprovanteConsumo"><div class="consumo-header"><h1><i class="fa-solid fa-cart-arrow-down"></i> COMPROVANTE DE CONSUMO</h1><p>Controle de Saída de Peças</p></div><div class="consumo-info"><div class="info-card"><label>📅 Data</label><span id="printConsumoData"></span></div><div class="info-card"><label>👤 Técnico</label><span id="printConsumoTecnico"></span></div><div class="info-card"><label>📋 OS</label><span id="printConsumoOS"></span></div><div class="info-card"><label>🔢 Documento</label><span id="printConsumoDoc"></span></div></div><table class="consumo-table"><thead><tr><th>Peça</th><th>Código</th><th>Código de barras</th><th>Quantidade</th><th>Observação</th></tr></thead><tbody id="printConsumoBody"></tbody></table><div class="consumo-footer"><p>Documento gerado automaticamente pelo sistema</p><p id="printConsumoFooter"></p></div></div></div></div></div></div>
 
@@ -2142,9 +2142,7 @@ function imprimirRelatorioEstoque() {
         else if(item.quantidade <= item.minimo) statusTexto = 'BAIXO';
         
         const tr = document.createElement('tr');
-        const codigoBarras = obterCodigoBarrasEstoque(item);
         tr.innerHTML = '<td>' + (item.codigo || '-') + '</td>' + 
-                      '<td><svg class="barcode-relatorio-estoque" jsbarcode-format="CODE128" jsbarcode-value="' + codigoBarras + '" jsbarcode-displayvalue="true" jsbarcode-height="30" jsbarcode-width="1.1"></svg></td>' + 
                       '<td>' + (item.modelo || '-') + '</td>' + 
                       '<td>' + item.nome + '</td>' + 
                       '<td>' + (item.prateleira || '-') + '</td>' + 
@@ -2153,7 +2151,6 @@ function imprimirRelatorioEstoque() {
                       '<td>' + statusTexto + '</td>';
         tbody.appendChild(tr);
     });
-    if(window.JsBarcode) JsBarcode('.barcode-relatorio-estoque').init();
     
     if(modalRelatorioEstoque) { 
         modalRelatorioEstoque.show(); 
