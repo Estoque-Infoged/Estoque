@@ -2297,5 +2297,58 @@ document.addEventListener('submit', function(e){
  }
 });
 </script>
+  <!-- SCRIPT DE SINCRONIZAÇÃO AUTOMÁTICA COM O NEON -->
+<script>
+(function() {
+    async function puxarDadosNuvem() {
+        try {
+            const res = await fetch('/api/state');
+            const repo = await res.json();
+            if (repo && repo.data && Object.keys(repo.data).length > 0) {
+                for (let key in repo.data) {
+                    localStorage.setItem(key, JSON.stringify(repo.data[key]));
+                }
+                console.log("Dados sincronizados com o Neon com sucesso!");
+                if (typeof renderDashboard === 'function') renderDashboard();
+                if (typeof renderTabelaEstoque === 'function') renderTabelaEstoque();
+                if (typeof renderTabelas === 'function') renderTabelas();
+            }
+        } catch (err) {
+            console.error("Erro ao puxar dados da nuvem:", err);
+        }
+    }
+
+    async function salvarDadosNuvem() {
+        try {
+            let estadoCompleto = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                let key = localStorage.key(i);
+                try {
+                    estadoCompleto[key] = JSON.parse(localStorage.getItem(key));
+                } catch(e) {
+                    estadoCompleto[key] = localStorage.getItem(key);
+                }
+            }
+            await fetch('/api/state', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: estadoCompleto })
+            });
+            console.log("Alteração salva no banco Neon!");
+        } catch (err) {
+            console.error("Erro ao salvar dados na nuvem:", err);
+        }
+    }
+
+    puxarDadosNuvem();
+
+    const originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(key, value) {
+        originalSetItem.apply(this, arguments);
+        salvarDadosNuvem();
+    };
+})();
+</script>
+
 </body>
 </html>
