@@ -234,6 +234,14 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 #relatorioEstoque h1 { font-size: 13px !important; }
 #relatorioEstoque .barcode-relatorio-estoque { font-size: 13px !important; font-weight: 700 !important; }
 #relatorioEstoque .barcode-relatorio-estoque text { font-size: 13px !important; font-weight: 700 !important; }
+@media print {
+  #etiquetasImpressao .etiqueta-print-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5mm; padding: 2mm; }
+  #etiquetasImpressao .etiqueta-card { box-sizing: border-box; width: 100%; min-height: 62mm; page-break-inside: avoid; border: 1px solid #222; outline: 1px dashed #666; outline-offset: 3px; border-radius: 0; padding: 5px 6px; }
+  #etiquetasImpressao .etiqueta-card .barcode-etiqueta { display: block; width: 100%; max-width: 100%; height: 78px; margin: 0 auto 5px; }
+  #etiquetasImpressao .etiqueta-card h5 { font-size: 16pt; line-height: 1.08; min-height: 2.16em; max-height: 2.16em; margin: 5px 0 4px; overflow: hidden; overflow-wrap: anywhere; word-break: normal; }
+  #etiquetasImpressao .etiqueta-card p { font-size: 11pt; line-height: 1.12; margin: 3px 0; overflow-wrap: anywhere; word-break: normal; }
+  #etiquetasImpressao .etiqueta-card p strong { font-size: 11pt; font-weight: 900; }
+}
 </style>
 </head>
 <body>
