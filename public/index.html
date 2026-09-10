@@ -187,6 +187,25 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 .auth-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px}
 .auth-card{width:100%;max-width:430px;background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:32px}
 .auth-card h2{font-weight:800;color:#343a40}.auth-user-badge{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:1000;background:#fff;border-radius:20px;padding:8px 16px;box-shadow:0 3px 15px rgba(0,0,0,.12);font-size:.85rem;white-space:nowrap}.auth-user-badge button{border:0;background:transparent;color:#dc3545;margin-left:8px}
+
+/* AJUSTE RESPONSIVO: HISTÓRICO DE CONSUMO */
+#consumo { width:100%; max-width:100%; min-width:0; margin:0 auto; }
+#consumo > .custom-card { width:100%; max-width:1500px; margin-left:auto; margin-right:auto; min-width:0; }
+#consumo > .custom-card:last-child { overflow:hidden; }
+#consumo .row { --bs-gutter-x:1rem; max-width:100%; }
+#consumo .table-responsive { display:block; width:100%; max-width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; }
+#consumo .table-responsive table { width:100%; min-width:1080px; margin:0 auto; }
+#consumo .table-responsive th, #consumo .table-responsive td { white-space:nowrap; vertical-align:middle; }
+#consumo .table-responsive td:nth-child(3), #consumo .table-responsive td:nth-child(9) { white-space:normal; overflow-wrap:anywhere; }
+@media (max-width: 900px) {
+  #consumo { padding-left:0; padding-right:0; }
+  #consumo > .custom-card { padding-left:14px !important; padding-right:14px !important; }
+  #consumo .table-responsive table { min-width:1050px; }
+}
+@media (min-width: 901px) {
+  #consumo > .custom-card:last-child { margin-top:24px; }
+}
+
 </style>
 </head>
 <body>
@@ -271,7 +290,7 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 <div class="col-md-2"><label class="form-label small text-muted">Código de Retirada</label><input type="text" class="form-control form-control-sm" id="filtroConsumoRetirada" placeholder="5 dígitos..." maxlength="5" onkeyup="filtrarHistoricoConsumo()"></div>
 <div class="col-md-3"><label class="form-label small text-muted">Técnico</label><select class="form-select form-select-sm" id="filtroConsumoTecnico" onchange="filtrarHistoricoConsumo()"><option value="">Todos os Técnicos</option></select></div>
 </div>
-<div class="table-responsive"><table class="table table-custom table-hover mb-0"><thead><tr><th>Data</th><th>Código de Retirada</th><th>Peça</th><th>Código</th><th>Código de barras</th><th>Qtd</th><th>Técnico</th><th>OS</th><th>Observação</th><th class="text-end">Ações</th></tr></thead><tbody id="tabelaConsumo"></tbody></table></div>
+<div class="table-responsive"><table class="table table-custom table-hover mb-0"><thead><tr><th>Data</th><th>Código de Retirada</th><th>Peça</th><th>Modelo</th><th>Código</th><th>Código de barras</th><th>Qtd</th><th>Técnico</th><th>OS</th><th>Observação</th><th class="text-end">Ações</th></tr></thead><tbody id="tabelaConsumo"></tbody></table></div>
 </div></div></div>
 
 <!-- ESTOQUE -->
@@ -686,7 +705,8 @@ function getEstoqueDB() {
  if(garantirCodigosBarrasUnicos(estoque)) localStorage.setItem('estoque_db',JSON.stringify(estoque));
  return estoque;
 }
-function saveEstoqueDB(data) { localStorage.setItem('estoque_db', JSON.stringify(data)); sincronizarEstadoNeon(); registrarAtividade('Estoque movimentado','O estoque foi atualizado','Estoque'); carregarEstoque(); verificarEstoqueBaixo(); atualizarSugestoes(); }
+function atualizarTelaEstoqueAgora(){ try{ filtrarEstoque(); verificarEstoqueBaixo(); renderizarEtiquetas(); atualizarDashboard(); atualizarGraficosDashboard(); }catch(e){ console.warn('Atualização visual do estoque:',e); } }
+function saveEstoqueDB(data) { const normalizado=(data||[]).map(p=>({...p,quantidade:Number(p.quantidade)||0,minimo:Number(p.minimo)||1})); localStorage.setItem('estoque_db', JSON.stringify(normalizado)); sincronizarEstadoNeon(); registrarAtividade('Estoque movimentado','O estoque foi atualizado','Estoque'); carregarEstoque(); atualizarTelaEstoqueAgora(); atualizarSugestoes(); }
 function normalizarCodigoRetirada(valor){
  const digitos=String(valor||'').replace(/\D/g,'');
  return /^\d{5}$/.test(digitos) ? digitos : null;
@@ -1148,8 +1168,8 @@ tbody.innerHTML = '';
 if(dados.length === 0) { tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4">Nenhuma peça cadastrada.</td></tr>'; return; }
 dados.forEach(item => {
 let statusBadge = ''; let statusClass = '';
-if(item.quantidade <= 0) { statusBadge = '<span class="badge badge-stock-low">Zerado</span>'; statusClass = 'table-danger'; }
-else if(item.quantidade <= item.minimo) { statusBadge = '<span class="badge badge-stock-low">Baixo</span>'; statusClass = 'table-warning'; }
+if((Number(item.quantidade) || 0) <= 0) { statusBadge = '<span class="badge badge-stock-low">Zerado</span>'; statusClass = 'table-danger'; }
+else if((Number(item.quantidade) || 0) <= (Number(item.minimo) || 0)) { statusBadge = '<span class="badge badge-stock-low">Baixo</span>'; statusClass = 'table-warning'; }
 else { statusBadge = '<span class="badge badge-stock-ok">OK</span>'; }
 
 const modeloFormatado = formatarModelosComQuebra(item.modelo);
@@ -1185,9 +1205,9 @@ const filtrado = estoque.filter(item => {
 const matchModelo = (item.modelo || '').toLowerCase().includes(modelo);
 const matchPeca = (item.nome || '').toLowerCase().includes(peca) || (item.codigo || '').toLowerCase().includes(peca);
 let matchStatus = true;
-if(status === 'baixo' && item.quantidade > item.minimo) matchStatus = false;
-if(status === 'ok' && item.quantidade <= item.minimo) matchStatus = false;
-if(status === 'zerado' && item.quantidade > 0) matchStatus = false;
+if(status === 'baixo' && (Number(item.quantidade)||0) > (Number(item.minimo)||0)) matchStatus = false;
+if(status === 'ok' && (Number(item.quantidade)||0) <= (Number(item.minimo)||0)) matchStatus = false;
+if(status === 'zerado' && (Number(item.quantidade)||0) > 0) matchStatus = false;
 return matchModelo && matchPeca && matchStatus;
 });
 renderizarTabelaEstoque(filtrado);
@@ -1926,7 +1946,7 @@ const idSelecionado = document.getElementById('pecaExistenteId')?.value || '';
 const existenteSelecionado = idSelecionado ? estoque.find(p=>String(p.id)===String(idSelecionado)) : null;
 const existente = existenteSelecionado || estoque.find(p => String(p.nome || '').toLowerCase().trim() === nomeNormalizado && String(p.codigo || '').toLowerCase().trim() === codigoNormalizado && String(p.modelo || '').toLowerCase().trim() === modeloNormalizado);
 if(existente){
- existente.quantidade = (parseInt(existente.quantidade) || 0) + quantidade;
+ existente.quantidade = (Number(existente.quantidade) || 0) + quantidade;
  if(obs) existente.obs = obs;
  saveEstoqueDB(estoque); registrarAtividade('Peça adicionada','Entrada de '+quantidade+' unidade(s) de '+existente.nome+'; saldo atual: '+existente.quantidade,'Estoque'); modalNovaPeca.hide(); atualizarSugestoes(); alert('Entrada registrada! O estoque de '+existente.nome+' agora possui '+existente.quantidade+' unidade(s).');
  return;
@@ -1936,7 +1956,7 @@ const novaPeca = { id: Date.now(), codigo: codigo ? codigo.toUpperCase() : '', c
 }
 
 function abrirEditarPeca(id) { if(!exigirPermissao('estoque_editar','Você não tem permissão para editar peças do estoque.')) return;
-const estoque = getEstoqueDB(); const item = estoque.find(p => p.id === id);
+const estoque = getEstoqueDB(); const item = estoque.find(p => String(p.id) === String(id));
 if(item) {
 document.getElementById('editPecaId').value = item.id; document.getElementById('editPecaCodigo').value = item.codigo || '';
 document.getElementById('editPecaModelo').value = item.modelo || ''; document.getElementById('editPecaPrateleira').value = item.prateleira || '';
@@ -1960,7 +1980,7 @@ const estoque = getEstoqueDB();
 const idx = estoque.findIndex(p => p.id == id);
 if(idx !== -1) {
 estoque[idx].codigo = novoCodigo; estoque[idx].modelo = novoModelo; estoque[idx].prateleira = novaPrateleira;
-estoque[idx].nome = novoNome; estoque[idx].quantidade = novaQuantidade; estoque[idx].minimo = novoMinimo; estoque[idx].obs = novaObs;
+estoque[idx].nome = novoNome; estoque[idx].quantidade = Number(novaQuantidade) || 0; estoque[idx].minimo = novoMinimo; estoque[idx].obs = novaObs;
  saveEstoqueDB(estoque); registrarAtividade('Peça editada','Cadastro de '+novoNome+' foi alterado; quantidade: '+novaQuantidade,'Estoque'); modalEditarPeca.hide(); atualizarSugestoes(); alert('Peça atualizada com sucesso!');
 }
 }
@@ -1981,21 +2001,24 @@ modalAjusteEstoque.show();
 function salvarAjusteEstoque() { const tipoAtual = document.getElementById('ajusteTipo').value; const permAtual = tipoAtual==='entrada'?'estoque_entrada':(tipoAtual==='saida'?'estoque_saida':'estoque_ajuste'); if(!exigirPermissao(permAtual,'Você não tem permissão para este tipo de movimento no estoque.')) return;
 const id = document.getElementById('ajustePecaId').value;
 const tipo = document.getElementById('ajusteTipo').value;
-const quantidade = parseInt(document.getElementById('ajusteQuantidade').value);
+const quantidade = Number.parseInt(document.getElementById('ajusteQuantidade').value, 10);
 const motivo = document.getElementById('ajusteMotivo').value.trim();
 if(isNaN(quantidade)) return alert('Informe uma quantidade válida.');
 if(tipo === 'ajuste') { if(quantidade < 0) return alert('Quantidade não pode ser negativa.'); }
 else if(quantidade <= 0) return alert('Quantidade deve ser maior que zero.');
 const estoque = getEstoqueDB(); const idx = estoque.findIndex(p => p.id == id);
 if(idx === -1) return alert('Peça não encontrada no estoque!');
- if(tipo === 'entrada') { estoque[idx].quantidade += quantidade; }
- else if(tipo === 'saida') { if(estoque[idx].quantidade < quantidade) { return alert('Quantidade insuficiente em estoque!'); } estoque[idx].quantidade -= quantidade; }
+ const saldoAntes = Number(estoque[idx].quantidade) || 0;
+ if(tipo === 'entrada') { estoque[idx].quantidade = saldoAntes + quantidade; }
+ else if(tipo === 'saida') { if(saldoAntes < quantidade) { return alert('Quantidade insuficiente em estoque!'); } estoque[idx].quantidade = saldoAntes - quantidade; }
  else if(tipo === 'ajuste') { estoque[idx].quantidade = quantidade; }
- const nomeMovimento=estoque[idx].nome; const rotuloMovimento=tipo==='entrada'?'Peça adicionada':(tipo==='saida'?'Peça removida':'Estoque ajustado');
+ const nomeMovimento=estoque[idx].nome;
+ if(tipo==='saida'){ const consumos=getConsumoDB(); const hoje=new Date().toISOString().slice(0,10); const tecnicoAtual=usuarioLogado&&usuarioLogado.tecnicoId?usuarioLogado.tecnicoId:''; consumos.push({id:Date.now(),codigoRetirada:gerarCodigoRetiradaUnico(consumos),pecaId:estoque[idx].id,pecaCodigo:estoque[idx].codigo||'',pecaCodigoBarras:obterCodigoBarrasEstoque(estoque[idx]),pecaNome:estoque[idx].nome||'',pecaModelo:estoque[idx].modelo||'',quantidade,tecnicoId:tecnicoAtual,os:'',data:hoje,obs:motivo||'Saída manual pelo estoque'}); saveConsumoDB(consumos); }
+ const rotuloMovimento=tipo==='entrada'?'Peça adicionada':(tipo==='saida'?'Peça removida':'Estoque ajustado');
  saveEstoqueDB(estoque); registrarAtividade(rotuloMovimento,nomeMovimento+'; quantidade movimentada: '+quantidade+(motivo?' ; motivo: '+motivo:''),'Estoque'); modalAjusteEstoque.hide(); alert('Estoque atualizado com sucesso!');
 }
 
-function excluirPeca(id) { if(!exigirPermissao('estoque_excluir','Você não tem permissão para excluir peças do estoque.')) return; if(confirm('Tem certeza que deseja excluir esta peça?')) { const estoque = getEstoqueDB(); const item=estoque.find(p=>p.id===id); saveEstoqueDB(estoque.filter(p => p.id !== id)); registrarAtividade('Peça excluída',item ? item.nome : 'Peça ID '+id,'Estoque'); atualizarSugestoes(); } }
+function excluirPeca(id) { if(!exigirPermissao('estoque_excluir','Você não tem permissão para excluir peças do estoque.')) return; if(confirm('Tem certeza que deseja excluir esta peça?')) { const estoque = getEstoqueDB(); const item=estoque.find(p=>String(p.id)===String(id)); saveEstoqueDB(estoque.filter(p => String(p.id) !== String(id))); registrarAtividade('Peça excluída',item ? item.nome : 'Peça ID '+id,'Estoque'); atualizarSugestoes(); } }
 function criarHtmlEtiqueta(item){
  const codigoBarras=obterCodigoBarrasEstoque(item);
  return '<div class="etiqueta-card"><svg class="barcode-etiqueta" jsbarcode-format="CODE128" jsbarcode-value="'+codigoBarras+'" jsbarcode-displayvalue="true" jsbarcode-height="48" jsbarcode-width="2"></svg><h5>'+ (item.nome || '-') +'</h5><p><strong>Modelo:</strong> '+(item.modelo || '-')+'</p><p><strong>Prateleira:</strong> '+(item.prateleira || '-')+'</p><p><strong>Código:</strong> '+codigoBarras+'</p></div>';
@@ -2106,10 +2129,10 @@ function filtrarHistoricoConsumo() {
 }
 function renderizarTabelaConsumo(dados) {
  const tbody=document.getElementById('tabelaConsumo'); if(!tbody)return; tbody.innerHTML=''; const tecnicos=getTecnicosDB();
- if(!dados.length){tbody.innerHTML='<tr><td colspan="10" class="text-center py-4">Nenhum consumo registrado.</td></tr>';return;}
+ if(!dados.length){tbody.innerHTML='<tr><td colspan="11" class="text-center py-4">Nenhum consumo registrado.</td></tr>';return;}
  dados.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).forEach(item=>{
-  const tecnico=tecnicos.find(t=>String(t.id)===String(item.tecnicoId)); const tr=document.createElement('tr');
-  tr.innerHTML='<td>'+formatarData(item.data)+'</td><td><span class="badge bg-light text-success border">'+(item.codigoRetirada||'-')+'</span></td><td>'+item.pecaNome+'</td><td><span class="badge bg-light text-primary border">'+(item.pecaCodigo||'-')+'</span></td><td class="codigo-barras-cell"><svg class="barcode-consumo" jsbarcode-format="CODE128" jsbarcode-value="'+(item.pecaCodigoBarras||item.pecaCodigo||'')+'" jsbarcode-displayvalue="true" jsbarcode-height="32" jsbarcode-width="1.2"></svg></td><td class="fw-bold">'+(Number(item.quantidade)||0)+'</td><td>'+ (tecnico?tecnico.nome:'-')+'</td><td>'+ (item.os||'-')+'</td><td>'+ (item.obs||'-')+'</td><td class="text-end"><button class="btn btn-sm btn-light text-success me-1" onclick="imprimirComprovanteConsumo('+item.id+')" title="Imprimir comprovante"><i class="fa-solid fa-print"></i></button>'+((isAdmin()||temPermissao('consumo_editar'))?'<button class="btn btn-sm btn-light text-primary me-1" onclick="editarConsumo('+item.id+')" title="Editar"><i class="fa-solid fa-pen"></i></button>':'')+((isAdmin()||temPermissao('consumo_excluir'))?'<button class="btn btn-sm btn-light text-danger" onclick="excluirConsumo('+item.id+')" title="Excluir"><i class="fa-solid fa-trash"></i></button>':'')+'</td>';
+  const estoque=getEstoqueDB(); const pecaEstoque=estoque.find(p=>String(p.id)===String(item.pecaId))||estoque.find(p=>String(p.codigo||'')===String(item.pecaCodigo||'')&&String(p.nome||'')===String(item.pecaNome||'')); const tecnico=tecnicos.find(t=>String(t.id)===String(item.tecnicoId)); const nomePeca=item.pecaNome||pecaEstoque?.nome||'-'; const modeloPeca=item.pecaModelo||pecaEstoque?.modelo||'-'; const tr=document.createElement('tr');
+  tr.innerHTML='<td>'+formatarData(item.data)+'</td><td><span class="badge bg-light text-success border">'+(item.codigoRetirada||'-')+'</span></td><td>'+nomePeca+'</td><td>'+modeloPeca+'</td><td><span class="badge bg-light text-primary border">'+(item.pecaCodigo||pecaEstoque?.codigo||'-')+'</span></td><td class="codigo-barras-cell"><svg class="barcode-consumo" jsbarcode-format="CODE128" jsbarcode-value="'+(item.pecaCodigoBarras||pecaEstoque?.codigoBarras||item.pecaCodigo||'')+'" jsbarcode-displayvalue="true" jsbarcode-height="32" jsbarcode-width="1.2"></svg></td><td class="fw-bold">'+(Number(item.quantidade)||0)+'</td><td>'+ (tecnico?tecnico.nome:'-')+'</td><td>'+ (item.os||'-')+'</td><td>'+ (item.obs||'-')+'</td><td class="text-end"><button class="btn btn-sm btn-light text-success me-1" onclick="imprimirComprovanteConsumo('+item.id+')" title="Imprimir comprovante"><i class="fa-solid fa-print"></i></button>'+((isAdmin()||temPermissao('consumo_editar'))?'<button class="btn btn-sm btn-light text-primary me-1" onclick="editarConsumo('+item.id+')" title="Editar"><i class="fa-solid fa-pen"></i></button>':'')+((isAdmin()||temPermissao('consumo_excluir'))?'<button class="btn btn-sm btn-light text-danger" onclick="excluirConsumo('+item.id+')" title="Excluir"><i class="fa-solid fa-trash"></i></button>':'')+'</td>';
   tbody.appendChild(tr);
  });
  if(window.JsBarcode) JsBarcode('.barcode-consumo').init();
@@ -2129,7 +2152,7 @@ if(formularioConsumo) formularioConsumo.addEventListener('submit',function(e){
  if(saldoDisponivel<quantidade && !confirmarConsumoSemEstoque(peca,quantidade,saldoDisponivel))return;
  if(antigo&&antigaPeca&&String(antigaPeca.id)!==String(novaPeca.id))antigaPeca.quantidade=(Number(antigaPeca.quantidade)||0)+(Number(antigo.quantidade)||0);
  novaPeca.quantidade=saldoDisponivel-quantidade;
- const registro={id:antigo?antigo.id:Date.now(),codigoRetirada:antigo?.codigoRetirada||gerarCodigoRetiradaUnico(consumo),pecaId:novaPeca.id,pecaCodigo:novaPeca.codigo,pecaCodigoBarras:obterCodigoBarrasEstoque(novaPeca),pecaNome:novaPeca.nome,quantidade,tecnicoId,os:document.getElementById('consumoOS').value.trim(),data:document.getElementById('consumoData').value,obs:document.getElementById('consumoObs').value.trim()};
+ const registro={id:antigo?antigo.id:Date.now(),codigoRetirada:antigo?.codigoRetirada||gerarCodigoRetiradaUnico(consumo),pecaId:novaPeca.id,pecaCodigo:novaPeca.codigo,pecaCodigoBarras:obterCodigoBarrasEstoque(novaPeca),pecaNome:novaPeca.nome,pecaModelo:novaPeca.modelo||'',quantidade,tecnicoId,os:document.getElementById('consumoOS').value.trim(),data:document.getElementById('consumoData').value,obs:document.getElementById('consumoObs').value.trim()};
  if(idx>=0)consumo[idx]=registro;else consumo.push(registro); saveEstoqueDB(estoque); saveConsumoDB(consumo); limparFormConsumo(); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert(antigo?'Consumo atualizado e estoque recalculado!':'Saída registrada! O estoque foi baixado e o consumo apareceu no histórico.');
 });
 function excluirConsumo(id) { if(!exigirPermissao('consumo_excluir','Você não tem permissão para excluir consumos.'))return; if(!confirm('Excluir registro de consumo? A quantidade será devolvida ao estoque.'))return; const consumo=getConsumoDB(), item=consumo.find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); const estoque=getEstoqueDB(), peca=estoque.find(p=>String(p.id)===String(item.pecaId))||estoque.find(p=>String(p.codigo||'')===String(item.pecaCodigo||'')&&String(p.nome||'')===String(item.pecaNome||'')); if(!peca)return alert('A peça não existe mais no estoque; o consumo não foi excluído para evitar perda de informação.'); peca.quantidade=(Number(peca.quantidade)||0)+(Number(item.quantidade)||0); saveEstoqueDB(estoque); saveConsumoDB(consumo.filter(c=>String(c.id)!==String(id))); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert('Consumo excluído e '+item.quantidade+' unidade(s) devolvida(s) ao estoque.'); }
