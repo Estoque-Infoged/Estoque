@@ -254,7 +254,7 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 <div id="consumo" class="section-content hidden">
 <div class="d-flex justify-content-between align-items-center mb-4"><h2 class="text-secondary"><i class="fa-solid fa-cart-arrow-down me-2"></i>Consumo de Peças</h2><button class="btn btn-success btn-sm" onclick="imprimirRelatorioConsumo()"><i class="fa-solid fa-print"></i> Imprimir Relatório</button></div>
 <div class="custom-card p-4"><form id="formConsumo"><input type="hidden" id="consumoId"><div class="row g-3">
-<div class="col-md-5"><label class="form-label">Peça (Código ou Nome) <span class="text-danger">*</span></label><input type="text" class="form-control" id="consumoPeca" list="listaPecasConsumo" required placeholder="Digite para buscar..." onchange="selecionarPecaConsumo()"></div>
+<div class="col-md-5"><label class="form-label">Peça (Código ou Nome) <span class="text-danger">*</span></label><input type="text" class="form-control" id="consumoPeca" list="listaPecasConsumo" required placeholder="Digite para buscar..." oninput="selecionarPecaConsumo()" onchange="selecionarPecaConsumo()"></div>
 <div class="col-md-2"><label class="form-label">Quantidade <span class="text-danger">*</span></label><input type="number" class="form-control" id="consumoQuantidade" min="1" value="1" required></div>
 <div class="col-md-5"><label class="form-label">Técnico <span class="text-danger">*</span></label><select class="form-select" id="consumoTecnico" required><option value="">Selecione...</option></select></div>
 <div class="col-md-6"><label class="form-label">OS / Equipamento</label><input type="text" class="form-control" id="consumoOS" placeholder="Ex: 1025"></div>
@@ -2086,139 +2086,53 @@ function imprimirRelatorioEstoque() {
 }
 
 // CONSUMO
-function carregarConsumo() { filtrarHistoricoConsumo(); }
+function carregarConsumo() { atualizarSugestoes(); filtrarHistoricoConsumo(); }
+function normalizarTextoConsumo(valor) { return String(valor ?? '').replace(/\s*\(Modelo:.*\)\s*$/i, '').replace(/^[- ]+/, '').trim().toLowerCase(); }
+function encontrarPecaConsumo(valor, estoque) {
+ const v=normalizarTextoConsumo(valor); if(!v) return null;
+ return (estoque||[]).find(p=>{ const codigo=normalizarTextoConsumo(p.codigo); const nome=normalizarTextoConsumo(p.nome); return v===codigo || v===nome || v===normalizarTextoConsumo((p.codigo||'')+' - '+(p.nome||'')); }) || null;
+}
 function filtrarHistoricoConsumo() {
-const consumo = getConsumoDB(); const tecnicos = getTecnicosDB();
-const fDataInicio = document.getElementById('filtroConsumoDataInicio').value;
-const fDataFim = document.getElementById('filtroConsumoDataFim').value;
-const fPeca = document.getElementById('filtroConsumoPeca').value.toLowerCase();
-const fCodigo = document.getElementById('filtroConsumoCodigo').value.toLowerCase();
-const fRetirada = document.getElementById('filtroConsumoRetirada').value.trim();
-const fTecnico = tecnicoPodeVerTodos() ? document.getElementById('filtroConsumoTecnico').value : String(usuarioLogado.tecnicoId);
-const filtrado = consumo.filter(item => {
-let matchData = true;
-if(fDataInicio && item.data < fDataInicio) matchData = false;
-if(fDataFim && item.data > fDataFim) matchData = false;
-const matchPeca = (item.pecaNome || '').toLowerCase().includes(fPeca);
-const matchCodigo = (item.pecaCodigo || '').toLowerCase().includes(fCodigo);
-const matchRetirada = !fRetirada || String(item.codigoRetirada || '').includes(fRetirada);
-const matchTecnico = fTecnico === '' || item.tecnicoId == fTecnico;
-return matchData && matchPeca && matchCodigo && matchRetirada && matchTecnico;
-});
-renderizarTabelaConsumo(filtrado);
+ const consumo=getConsumoDB(); const tecnicos=getTecnicosDB();
+ const el=id=>document.getElementById(id); const val=id=>(el(id)?.value||'');
+ const fDataInicio=val('filtroConsumoDataInicio'), fDataFim=val('filtroConsumoDataFim');
+ const fPeca=val('filtroConsumoPeca').toLowerCase(), fCodigo=val('filtroConsumoCodigo').toLowerCase(), fRetirada=val('filtroConsumoRetirada').trim();
+ const fTecnico=tecnicoPodeVerTodos() ? val('filtroConsumoTecnico') : (usuarioLogado ? String(usuarioLogado.tecnicoId) : '');
+ const filtrado=consumo.filter(item=>{
+  const data=String(item.data||'');
+  return (!fDataInicio||data>=fDataInicio)&&(!fDataFim||data<=fDataFim)&&String(item.pecaNome||'').toLowerCase().includes(fPeca)&&String(item.pecaCodigo||'').toLowerCase().includes(fCodigo)&&(!fRetirada||String(item.codigoRetirada||'').includes(fRetirada))&&(fTecnico===''||String(item.tecnicoId)===String(fTecnico));
+ });
+ renderizarTabelaConsumo(filtrado);
 }
-
 function renderizarTabelaConsumo(dados) {
-const tbody = document.getElementById('tabelaConsumo'); if(!tbody) return; tbody.innerHTML = '';
-const tecnicos = getTecnicosDB();
-if(dados.length === 0) { tbody.innerHTML = '<tr><td colspan="10" class="text-center py-4">Nenhum consumo registrado.</td></tr>'; return; }
-dados.forEach(item => {
-const tecnico = tecnicos.find(t => t.id == item.tecnicoId);
-const tr = document.createElement('tr');
-tr.innerHTML = '<td>' + formatarData(item.data) + '</td>' + '<td><span class="badge bg-light text-success border">' + (item.codigoRetirada || '-') + '</span></td>' + '<td>' + item.pecaNome + '</td>' + '<td><span class="badge bg-light text-primary border">' + item.pecaCodigo + '</span></td>' + '<td class="codigo-barras-cell"><svg class="barcode-consumo" jsbarcode-format="CODE128" jsbarcode-value="' + (item.pecaCodigoBarras || item.pecaCodigo || '') + '" jsbarcode-displayvalue="true" jsbarcode-height="32" jsbarcode-width="1.2"></svg></td>' + '<td class="fw-bold">' + item.quantidade + '</td>' + '<td>' + (tecnico ? tecnico.nome : '-') + '</td>' + '<td>' + (item.os || '-') + '</td>' + '<td>' + (item.obs || '-') + '</td>' + '<td class="text-end">' + '<button class="btn btn-sm btn-light text-success me-1" onclick="imprimirComprovanteConsumo(' + item.id + ')" title="Imprimir comprovante"><i class="fa-solid fa-print"></i></button>' + ((isAdmin() || temPermissao('consumo_editar')) ? '<button class="btn btn-sm btn-light text-primary me-1" onclick="editarConsumo(' + item.id + ')" title="Editar"><i class="fa-solid fa-pen"></i></button>' : '') + ((isAdmin() || temPermissao('consumo_excluir')) ? '<button class="btn btn-sm btn-light text-danger" onclick="excluirConsumo(' + item.id + ')" title="Excluir"><i class="fa-solid fa-trash"></i></button>' : '') + '</td>';
-tbody.appendChild(tr);
+ const tbody=document.getElementById('tabelaConsumo'); if(!tbody)return; tbody.innerHTML=''; const tecnicos=getTecnicosDB();
+ if(!dados.length){tbody.innerHTML='<tr><td colspan="10" class="text-center py-4">Nenhum consumo registrado.</td></tr>';return;}
+ dados.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).forEach(item=>{
+  const tecnico=tecnicos.find(t=>String(t.id)===String(item.tecnicoId)); const tr=document.createElement('tr');
+  tr.innerHTML='<td>'+formatarData(item.data)+'</td><td><span class="badge bg-light text-success border">'+(item.codigoRetirada||'-')+'</span></td><td>'+item.pecaNome+'</td><td><span class="badge bg-light text-primary border">'+(item.pecaCodigo||'-')+'</span></td><td class="codigo-barras-cell"><svg class="barcode-consumo" jsbarcode-format="CODE128" jsbarcode-value="'+(item.pecaCodigoBarras||item.pecaCodigo||'')+'" jsbarcode-displayvalue="true" jsbarcode-height="32" jsbarcode-width="1.2"></svg></td><td class="fw-bold">'+(Number(item.quantidade)||0)+'</td><td>'+ (tecnico?tecnico.nome:'-')+'</td><td>'+ (item.os||'-')+'</td><td>'+ (item.obs||'-')+'</td><td class="text-end"><button class="btn btn-sm btn-light text-success me-1" onclick="imprimirComprovanteConsumo('+item.id+')" title="Imprimir comprovante"><i class="fa-solid fa-print"></i></button>'+((isAdmin()||temPermissao('consumo_editar'))?'<button class="btn btn-sm btn-light text-primary me-1" onclick="editarConsumo('+item.id+')" title="Editar"><i class="fa-solid fa-pen"></i></button>':'')+((isAdmin()||temPermissao('consumo_excluir'))?'<button class="btn btn-sm btn-light text-danger" onclick="excluirConsumo('+item.id+')" title="Excluir"><i class="fa-solid fa-trash"></i></button>':'')+'</td>';
+  tbody.appendChild(tr);
+ });
+ if(window.JsBarcode) JsBarcode('.barcode-consumo').init();
+}
+function selecionarPecaConsumo() { pecaSelecionadaConsumo=encontrarPecaConsumo(document.getElementById('consumoPeca')?.value,getEstoqueDB()); return pecaSelecionadaConsumo; }
+function limparFormConsumo() { const form=document.getElementById('formConsumo'); if(form)form.reset(); const id=document.getElementById('consumoId'); if(id)id.value=''; const data=document.getElementById('consumoData'); if(data)data.value=new Date().toISOString().slice(0,10); pecaSelecionadaConsumo=null; }
+function editarConsumo(id) { if(!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'))return; const item=getConsumoDB().find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); document.getElementById('consumoId').value=item.id; document.getElementById('consumoPeca').value=(item.pecaCodigo?item.pecaCodigo+' - ':'')+item.pecaNome; document.getElementById('consumoQuantidade').value=Number(item.quantidade)||1; document.getElementById('consumoTecnico').value=item.tecnicoId; document.getElementById('consumoOS').value=item.os||''; document.getElementById('consumoData').value=item.data||new Date().toISOString().slice(0,10); document.getElementById('consumoObs').value=item.obs||''; pecaSelecionadaConsumo=encontrarPecaConsumo(document.getElementById('consumoPeca').value,getEstoqueDB())||getEstoqueDB().find(p=>String(p.id)===String(item.pecaId)); document.getElementById('formConsumo').scrollIntoView({behavior:'smooth',block:'center'}); alert('Dados carregados! Agora você pode editar e salvar.'); }
+const formularioConsumo=document.getElementById('formConsumo');
+if(formularioConsumo) formularioConsumo.addEventListener('submit',function(e){
+ e.preventDefault(); const idCampo=document.getElementById('consumoId'), consumoId=idCampo?.value||''; if(consumoId?!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'):!exigirPermissao('consumo_registrar','Você não tem permissão para registrar consumos.'))return;
+ const peca=selecionarPecaConsumo(); const quantidade=Number.parseInt(document.getElementById('consumoQuantidade').value,10); const tecnicoId=document.getElementById('consumoTecnico').value;
+ if(!peca)return alert('Selecione uma peça válida da lista de estoque.'); if(!Number.isInteger(quantidade)||quantidade<=0)return alert('Informe uma quantidade maior que zero.'); if(!tecnicoId)return alert('Selecione um técnico!');
+ const consumo=getConsumoDB(), estoque=getEstoqueDB(), idx=consumoId?consumo.findIndex(c=>String(c.id)===String(consumoId)):-1, antigo=idx>=0?consumo[idx]:null;
+ const novaPeca=estoque.find(p=>String(p.id)===String(peca.id)); if(!novaPeca)return alert('Peça não encontrada no estoque!');
+ const antigaPeca=antigo?estoque.find(p=>String(p.id)===String(antigo.pecaId)):null;
+ const saldoDisponivel=(Number(novaPeca.quantidade)||0)+(antigo&&antigaPeca&&String(antigaPeca.id)===String(novaPeca.id)?Number(antigo.quantidade)||0:0);
+ if(saldoDisponivel<quantidade && !confirmarConsumoSemEstoque(peca,quantidade,saldoDisponivel))return;
+ if(antigo&&antigaPeca&&String(antigaPeca.id)!==String(novaPeca.id))antigaPeca.quantidade=(Number(antigaPeca.quantidade)||0)+(Number(antigo.quantidade)||0);
+ novaPeca.quantidade=saldoDisponivel-quantidade;
+ const registro={id:antigo?antigo.id:Date.now(),codigoRetirada:antigo?.codigoRetirada||gerarCodigoRetiradaUnico(consumo),pecaId:novaPeca.id,pecaCodigo:novaPeca.codigo,pecaCodigoBarras:obterCodigoBarrasEstoque(novaPeca),pecaNome:novaPeca.nome,quantidade,tecnicoId,os:document.getElementById('consumoOS').value.trim(),data:document.getElementById('consumoData').value,obs:document.getElementById('consumoObs').value.trim()};
+ if(idx>=0)consumo[idx]=registro;else consumo.push(registro); saveEstoqueDB(estoque); saveConsumoDB(consumo); limparFormConsumo(); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert(antigo?'Consumo atualizado e estoque recalculado!':'Saída registrada! O estoque foi baixado e o consumo apareceu no histórico.');
 });
-if(window.JsBarcode) JsBarcode('.barcode-consumo').init();
-}
-
-// 🎯 SELECIONAR PEÇA CONSUMO - COM LIMPEZA DO MODELO
-function selecionarPecaConsumo() {
-const valor = document.getElementById('consumoPeca').value;
-const estoque = getEstoqueDB();
-
-// Remove "(Modelo: XXX)" do final
-const valorLimpo = valor.replace(/\s*\(Modelo:.*\)\s*$/, '').replace(/^-\s*/, '').trim().toLowerCase();
-
-const peca = estoque.find(p => {
-const codigo = (p.codigo || '').toLowerCase();
-const nome = (p.nome || '').toLowerCase();
-return codigo === valorLimpo || nome === valorLimpo || (codigo + ' - ' + nome).trim() === valorLimpo;
-});
-
-if(peca) { pecaSelecionadaConsumo = peca; } else { pecaSelecionadaConsumo = null; }
-}
-
-function limparFormConsumo() {
-document.getElementById('formConsumo').reset(); document.getElementById('consumoId').value = '';
-document.getElementById('consumoData').value = new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-');
-pecaSelecionadaConsumo = null;
-}
-
-function editarConsumo(id) { if(!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.')) return;
-const consumo = getConsumoDB(); const item = consumo.find(c => c.id == id);
-if(item) {
-document.getElementById('consumoId').value = item.id;
-document.getElementById('consumoPeca').value = item.pecaCodigo + ' - ' + item.pecaNome;
-document.getElementById('consumoQuantidade').value = item.quantidade;
-document.getElementById('consumoTecnico').value = item.tecnicoId;
-document.getElementById('consumoOS').value = item.os || '';
-document.getElementById('consumoData').value = item.data;
-document.getElementById('consumoObs').value = item.obs || '';
-pecaSelecionadaConsumo = getEstoqueDB().find(p => p.id == item.pecaId);
-document.getElementById('formConsumo').scrollIntoView({ behavior: 'smooth', block: 'center' });
-document.querySelector('#consumo .custom-card:first-child').classList.add('border-primary', 'border-2');
-setTimeout(function() { document.querySelector('#consumo .custom-card:first-child').classList.remove('border-primary', 'border-2'); }, 2000);
-alert('Dados carregados! Agora você pode editar e salvar.');
-} else { alert('Registro não encontrado!'); }
-}
-
-document.getElementById('formConsumo').addEventListener('submit', function(e) {
-e.preventDefault();
-const consumoIdAtual = document.getElementById('consumoId').value;
-if(consumoIdAtual ? !exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.') : !exigirPermissao('consumo_registrar','Você não tem permissão para registrar consumos.')) return;
-const consumoId = document.getElementById('consumoId').value;
-const pecaInput = document.getElementById('consumoPeca').value;
-const quantidade = parseInt(document.getElementById('consumoQuantidade').value);
-const tecnicoId = document.getElementById('consumoTecnico').value;
-const os = document.getElementById('consumoOS').value;
-const data = document.getElementById('consumoData').value;
-const obs = document.getElementById('consumoObs').value;
-
-if(!pecaSelecionadaConsumo) {
-const estoque = getEstoqueDB();
-const valorLimpo = pecaInput.replace(/\s*\(Modelo:.*\)\s*$/, '').replace(/^-\s*/, '').trim().toLowerCase();
-const peca = estoque.find(p => { const codigo = (p.codigo || '').toLowerCase(); const nome = (p.nome || '').toLowerCase(); return codigo === valorLimpo || nome === valorLimpo || (codigo + ' - ' + nome).trim() === valorLimpo; });
-if(!peca) return alert('Peça não encontrada!'); pecaSelecionadaConsumo = peca;
-}
-
-if(!Number.isInteger(quantidade) || quantidade <= 0) return alert('Informe uma quantidade maior que zero.');
-if(!tecnicoId) return alert('Selecione um técnico!');
-
-const consumo = getConsumoDB(); const estoque = getEstoqueDB();
-const idxConsumo = consumoId ? consumo.findIndex(c => c.id == consumoId) : -1;
-const registro = { id: consumoId ? parseInt(consumoId) : Date.now(), codigoRetirada: consumoId && idxConsumo !== -1 && consumo[idxConsumo].codigoRetirada ? consumo[idxConsumo].codigoRetirada : gerarCodigoRetiradaUnico(consumo), pecaId: pecaSelecionadaConsumo.id, pecaCodigo: pecaSelecionadaConsumo.codigo, pecaCodigoBarras: obterCodigoBarrasEstoque(pecaSelecionadaConsumo), pecaNome: pecaSelecionadaConsumo.nome, quantidade: quantidade, tecnicoId: tecnicoId, os: os, data: data, obs: obs };
-const consumoAntigo = idxConsumo !== -1 ? consumo[idxConsumo] : null;
-const pecaEstoque = estoque.find(p => p.id === pecaSelecionadaConsumo.id);
-const saldoAtual = pecaEstoque ? (parseInt(pecaEstoque.quantidade) || 0) : 0;
-const saldoDisponivel = saldoAtual + (consumoAntigo && consumoAntigo.pecaId === pecaSelecionadaConsumo.id ? (parseInt(consumoAntigo.quantidade) || 0) : 0);
-if(!pecaEstoque) return alert('Peça não encontrada no estoque!');
-if(saldoDisponivel < quantidade && !confirmarConsumoSemEstoque(pecaSelecionadaConsumo, quantidade, saldoDisponivel)) return;
-
-if(consumoId && idxConsumo !== -1) {
- const antigaPecaEstoque = estoque.find(p => p.id === consumoAntigo.pecaId);
- if(antigaPecaEstoque && antigaPecaEstoque.id !== pecaEstoque.id) antigaPecaEstoque.quantidade = (parseInt(antigaPecaEstoque.quantidade) || 0) + (parseInt(consumoAntigo.quantidade) || 0);
- pecaEstoque.quantidade = saldoAtual + (antigaPecaEstoque && antigaPecaEstoque.id === pecaEstoque.id ? (parseInt(consumoAntigo.quantidade) || 0) : 0) - quantidade;
- consumo[idxConsumo] = registro;
- alert('Consumo atualizado!');
-} else {
- pecaEstoque.quantidade = saldoAtual - quantidade;
- consumo.push(registro);
-}
-saveEstoqueDB(estoque);
-saveConsumoDB(consumo); registrarAtividade(consumoId?'Consumo editado':'Consumo registrado',registro.quantidade+' unidade(s) de '+registro.pecaNome+' para o técnico ID '+registro.tecnicoId+(registro.os?' | OS: '+registro.os:''),'Consumo'); alert(consumoId ? 'Consumo atualizado com sucesso!' : 'Consumo salvo com sucesso!'); limparFormConsumo(); filtrarHistoricoConsumo();
-});
-
-function excluirConsumo(id) { if(!exigirPermissao('consumo_excluir','Você não tem permissão para excluir consumos.')) return;
-if(confirm('Excluir registro de consumo? A quantidade será restaurada no estoque.')) {
-const consumo = getConsumoDB(); const item = consumo.find(c => c.id == id);
-if(item) {
-const estoque = getEstoqueDB(); const pecaIdx = estoque.findIndex(p => p.id == item.pecaId);
-if(pecaIdx !== -1) { estoque[pecaIdx].quantidade = (parseInt(estoque[pecaIdx].quantidade) || 0) + (parseInt(item.quantidade) || 0); saveEstoqueDB(estoque); alert('Consumo excluído! ' + item.quantidade + ' unidade(s) de "' + item.pecaNome + '" restaurada(s) no estoque.'); }
-else { alert('Consumo excluído! (Peça não encontrada no estoque para restauração)'); }
-saveConsumoDB(consumo.filter(c => c.id != id)); registrarAtividade('Consumo excluído',item.quantidade+' unidade(s) de '+item.pecaNome+' foram devolvidas ao estoque','Consumo'); filtrarHistoricoConsumo();
-}
-}
-}
+function excluirConsumo(id) { if(!exigirPermissao('consumo_excluir','Você não tem permissão para excluir consumos.'))return; if(!confirm('Excluir registro de consumo? A quantidade será devolvida ao estoque.'))return; const consumo=getConsumoDB(), item=consumo.find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); const estoque=getEstoqueDB(), peca=estoque.find(p=>String(p.id)===String(item.pecaId))||estoque.find(p=>String(p.codigo||'')===String(item.pecaCodigo||'')&&String(p.nome||'')===String(item.pecaNome||'')); if(!peca)return alert('A peça não existe mais no estoque; o consumo não foi excluído para evitar perda de informação.'); peca.quantidade=(Number(peca.quantidade)||0)+(Number(item.quantidade)||0); saveEstoqueDB(estoque); saveConsumoDB(consumo.filter(c=>String(c.id)!==String(id))); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert('Consumo excluído e '+item.quantidade+' unidade(s) devolvida(s) ao estoque.'); }
 
 function escaparHtmlConsumo(valor){
  return String(valor ?? '-').replace(/[&<>"']/g, function(caractere){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[caractere]; });
