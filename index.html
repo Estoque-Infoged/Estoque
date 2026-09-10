@@ -2145,7 +2145,7 @@ function imprimirRelatorioEstoque() {
         const tr = document.createElement('tr');
         const codigoBarras = obterCodigoBarrasEstoque(item);
         tr.innerHTML = '<td>' + (item.codigo || '-') + '</td>' + 
-                      '<td><svg class="barcode-relatorio-estoque" jsbarcode-format="CODE128" jsbarcode-value="' + codigoBarras + '" jsbarcode-displayvalue="true" jsbarcode-height="30" jsbarcode-width="1.1"></svg></td>' + 
+                      '<td><svg class="barcode-relatorio-estoque" style="width:110px;max-width:100%;height:24px" jsbarcode-format="CODE128" jsbarcode-value="' + codigoBarras + '" jsbarcode-displayvalue="true" jsbarcode-height="22" jsbarcode-width="0.7"></svg></td>' + 
                       '<td>' + (item.modelo || '-') + '</td>' + 
                       '<td>' + item.nome + '</td>' + 
                       '<td>' + (item.prateleira || '-') + '</td>' + 
