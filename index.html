@@ -483,7 +483,7 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 </div>
 
 <!-- MODAIS -->
-<div class="modal fade" id="modalComprovanteUnico" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="comprovanteUnico"><div class="comprovante-header"><h1><i class="fa-solid fa-microchip"></i> EQUIPPRO</h1><p>Gestão de Equipamentos</p></div><div class="comprovante-info"><div class="info-card"><label>📅 Data</label><span id="printDataEmissao"></span></div><div class="info-card"><label>🏷️ Status</label><span id="printStatusFiltro"></span></div><div class="info-card"><label>📋 Total</label><span id="printTotalEquipamentos"></span></div><div class="info-card"><label>🔢 Documento</label><span id="printDocNumber"></span></div></div><table class="comprovante-table"><thead><tr><th>OS</th><th>Nº Série</th><th>Data Retirada</th><th>Modelo</th><th>Cliente</th><th>Peças</th><th>Status</th><th>Técnico</th><th>Problema</th></tr></thead><tbody id="printEquipamentosBody"></tbody></table><div class="comprovante-footer"><p>Documento gerado automaticamente pelo sistema</p><p id="printFooterDate"></p></div></div></div></div></div></div>
+<div class="modal fade" id="modalComprovanteUnico" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="comprovanteUnico"><div class="comprovante-header"><h1><i class="fa-solid fa-microchip"></i> EQUIPPRO</h1><p>Gestão de Equipamentos</p></div><div class="comprovante-info"><div class="info-card"><label>📅 Data</label><span id="printDataEmissao"></span></div><div class="info-card"><label>🏷️ Status</label><span id="printStatusFiltro"></span></div><div class="info-card"><label>📋 Total de Peças</label><span id="printTotalEquipamentos"></span></div><div class="info-card"><label>🔢 Documento</label><span id="printDocNumber"></span></div></div><table class="comprovante-table"><thead><tr><th>OS</th><th>Nº Série</th><th>Data</th><th>Modelo</th><th>Cliente</th><th>Peça retirada</th><th>Código</th><th>Quantidade</th><th>Status</th><th>Técnico</th></tr></thead><tbody id="printEquipamentosBody"></tbody></table><div class="comprovante-footer"><p>Documento gerado automaticamente pelo sistema</p><p id="printFooterDate"></p></div></div></div></div></div></div>
 
 <div class="modal fade" id="modalEtiquetas" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-body"><div id="etiquetasImpressao"><div id="etiquetaPrintBody" class="etiqueta-print-grid"></div></div></div></div></div></div></div>
 
@@ -1961,8 +1961,8 @@ const db = getDB(); const fStatus = document.getElementById('filtroStatus').valu
 const fFim = document.getElementById('filtroDataFim').value; const fTexto = document.getElementById('filtroTexto').value.toLowerCase();
 const fNumeroSerie = document.getElementById('filtroNumeroSerie').value.toLowerCase();
 const filtrado = db.filter(item => {
-const matchTexto = item.modelo.toLowerCase().includes(fTexto) || (item.cliente && item.cliente.toLowerCase().includes(fTexto)) || (item.os && item.os.toLowerCase().includes(fTexto));
-const matchNumeroSerie = item.numeroSerie && item.numeroSerie.toLowerCase().includes(fNumeroSerie);
+const matchTexto = String(item.modelo || '').toLowerCase().includes(fTexto) || String(item.cliente || '').toLowerCase().includes(fTexto) || String(item.os || '').toLowerCase().includes(fTexto);
+const matchNumeroSerie = !fNumeroSerie || String(item.numeroSerie || '').toLowerCase().includes(fNumeroSerie);
 const matchStatus = fStatus === "" || item.status === fStatus;
 let matchData = true;
 if(fInicio && item.dataEntrada < fInicio) matchData = false;
@@ -1975,20 +1975,25 @@ prepararEImprimir(filtrado, false);
 
 function prepararEImprimir(equipamentos, isIndividual) {
 const statusDB = getStatusDB(); const hoje = new Date();
+const linhasPecas = [];
+equipamentos.forEach(item => {
+ const pecas = Array.isArray(item.pecas) ? item.pecas : [];
+ pecas.forEach(peca => linhasPecas.push({ equipamento: item, peca: peca }));
+});
+if(!linhasPecas.length) { alert(isIndividual ? 'Este equipamento não possui peças retiradas para imprimir.' : 'Os equipamentos encontrados não possuem peças retiradas para imprimir.'); return; }
 document.getElementById('printDataEmissao').innerText = hoje.toLocaleDateString('pt-BR') + ' ' + hoje.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 const fStatus = document.getElementById('filtroStatus').value;
-document.getElementById('printStatusFiltro').innerText = isIndividual ? equipamentos[0].status : (fStatus || 'Todos');
-document.getElementById('printTotalEquipamentos').innerText = equipamentos.length;
+document.getElementById('printStatusFiltro').innerText = isIndividual ? (equipamentos[0].status || 'Todos') : (fStatus || 'Todos');
+document.getElementById('printTotalEquipamentos').innerText = linhasPecas.length;
 document.getElementById('printDocNumber').innerText = 'DOC-' + Date.now().toString().slice(-8);
 document.getElementById('printFooterDate').innerText = 'Gerado: ' + hoje.toLocaleDateString('pt-BR') + ' às ' + hoje.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 const tbody = document.getElementById('printEquipamentosBody'); tbody.innerHTML = '';
-equipamentos.forEach(item => {
-const statusObj = statusDB.find(s => s.nome === item.status) || { cor: '#6c757d' };
-const pecasStr = item.pecas && item.pecas.length > 0 ? item.pecas.map(p => p.nome + ' (' + p.quantidade + ')').join(', ') : '-';
-const dataRetirada = item.dataEntrada ? item.dataEntrada.split('-').reverse().join('/') : '-';
-const tr = document.createElement('tr');
-tr.innerHTML = '<td><strong>' + (item.os || '-') + '</strong></td>' + '<td>' + (item.numeroSerie || '-') + '</td>' + '<td><strong>' + dataRetirada + '</strong></td>' + '<td>' + item.modelo + '</td>' + '<td>' + (item.cliente || '-') + '</td>' + '<td><small>' + pecasStr + '</small></td>' + '<td><span class="status-tag" style="background: ' + statusObj.cor + '">' + item.status + '</span></td>' + '<td>' + (item.tecnicoResponsavel || '-') + '</td>' + '<td>' + (item.descricao || '-') + '</td>';
-tbody.appendChild(tr);
+linhasPecas.forEach(({ equipamento: item, peca }) => {
+ const statusObj = statusDB.find(s => s.nome === item.status) || { cor: '#6c757d' };
+ const dataRetirada = item.dataEntrada ? item.dataEntrada.split('-').reverse().join('/') : '-';
+ const tr = document.createElement('tr');
+ tr.innerHTML = '<td><strong>' + (item.os || '-') + '</strong></td>' + '<td>' + (item.numeroSerie || '-') + '</td>' + '<td><strong>' + dataRetirada + '</strong></td>' + '<td>' + (item.modelo || '-') + '</td>' + '<td>' + (item.cliente || '-') + '</td>' + '<td><small>' + (peca.nome || '-') + '</small></td>' + '<td>' + (peca.codigo || '-') + '</td>' + '<td><strong>' + (Number(peca.quantidade) || 0) + '</strong></td>' + '<td><span class="status-tag" style="background: ' + statusObj.cor + '">' + (item.status || '-') + '</span></td>' + '<td>' + (item.tecnicoResponsavel || '-') + '</td>';
+ tbody.appendChild(tr);
 });
 if(modalComprovanteUnico) { modalComprovanteUnico.show(); setTimeout(function() { window.print(); modalComprovanteUnico.hide(); }, 300); }
 }
