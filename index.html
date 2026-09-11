@@ -2302,55 +2302,121 @@ document.addEventListener('submit', function(e){
   <!-- SCRIPT DE SINCRONIZAÇÃO AUTOMÁTICA COM O NEON -->
 <script>
 (function() {
-    async function puxarDadosNuvem() {
+    const INTERVALO_SINCRONIZACAO_MS = 1500;
+    const CHAVES_LOCAIS = new Set(['sessao_usuario', 'menu_recolhido']);
+    const originalSetItem = localStorage.setItem.bind(localStorage);
+    const originalRemoveItem = localStorage.removeItem.bind(localStorage);
+    let sincronizandoNuvem = false;
+    let salvamentoAgendado = null;
+    let requisicaoPullEmAndamento = false;
+    let ultimaVersaoRecebida = '';
+
+    function deveSincronizar(chave) {
+        return chave && !CHAVES_LOCAIS.has(chave);
+    }
+
+    function estadoLocalParaNuvem() {
+        const estadoCompleto = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!deveSincronizar(key)) continue;
+            try {
+                estadoCompleto[key] = JSON.parse(localStorage.getItem(key));
+            } catch (e) {
+                estadoCompleto[key] = localStorage.getItem(key);
+            }
+        }
+        return estadoCompleto;
+    }
+
+    function atualizarTelasDepoisDaSincronizacao() {
         try {
-            const res = await fetch('/api/state');
-            const repo = await res.json();
-            if (repo && repo.data && Object.keys(repo.data).length > 0) {
-                for (let key in repo.data) {
-                    localStorage.setItem(key, JSON.stringify(repo.data[key]));
-                }
-                console.log("Dados sincronizados com o Neon com sucesso!");
-                if (typeof renderDashboard === 'function') renderDashboard();
-                if (typeof renderTabelaEstoque === 'function') renderTabelaEstoque();
-                if (typeof renderTabelas === 'function') renderTabelas();
+            if (typeof atualizarTodasAsTelasAgora === 'function') atualizarTodasAsTelasAgora();
+            else {
+                if (typeof carregarEstoque === 'function') carregarEstoque();
+                if (typeof filtrarEstoque === 'function') filtrarEstoque();
+                if (typeof carregarDados === 'function') carregarDados();
+                if (typeof carregarConsumo === 'function') carregarConsumo();
+                if (typeof atualizarSugestoes === 'function') atualizarSugestoes();
+                if (typeof atualizarDashboard === 'function') atualizarDashboard();
             }
         } catch (err) {
-            console.error("Erro ao puxar dados da nuvem:", err);
+            console.warn('Erro ao atualizar as telas após sincronização:', err);
+        }
+    }
+
+    async function puxarDadosNuvem() {
+        if (requisicaoPullEmAndamento || document.visibilityState === 'hidden') return;
+        requisicaoPullEmAndamento = true;
+        try {
+            const res = await fetch('/api/state?ts=' + Date.now(), { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const repo = await res.json();
+            const dados = repo && repo.data;
+            if (!dados || typeof dados !== 'object') return;
+            const versao = JSON.stringify(dados);
+            if (versao === ultimaVersaoRecebida) return;
+
+            sincronizandoNuvem = true;
+            let houveAlteracao = false;
+            Object.keys(dados).forEach(key => {
+                if (!deveSincronizar(key)) return;
+                const valorNuvem = typeof dados[key] === 'string' ? dados[key] : JSON.stringify(dados[key]);
+                if (localStorage.getItem(key) !== valorNuvem) {
+                    originalSetItem(key, valorNuvem);
+                    houveAlteracao = true;
+                }
+            });
+            sincronizandoNuvem = false;
+            ultimaVersaoRecebida = versao;
+            if (houveAlteracao) atualizarTelasDepoisDaSincronizacao();
+        } catch (err) {
+            console.warn('Sincronização automática indisponível:', err);
+        } finally {
+            sincronizandoNuvem = false;
+            requisicaoPullEmAndamento = false;
         }
     }
 
     async function salvarDadosNuvem() {
+        salvamentoAgendado = null;
         try {
-            let estadoCompleto = {};
-            for (let i = 0; i < localStorage.length; i++) {
-                let key = localStorage.key(i);
-                try {
-                    estadoCompleto[key] = JSON.parse(localStorage.getItem(key));
-                } catch(e) {
-                    estadoCompleto[key] = localStorage.getItem(key);
-                }
-            }
-            await fetch('/api/state', {
+            const estadoCompleto = estadoLocalParaNuvem();
+            const resposta = await fetch('/api/state', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: estadoCompleto })
             });
-            console.log("Alteração salva no banco Neon!");
+            if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
+            ultimaVersaoRecebida = JSON.stringify(estadoCompleto);
         } catch (err) {
-            console.error("Erro ao salvar dados na nuvem:", err);
+            console.warn('Não foi possível salvar os dados na nuvem:', err);
         }
     }
 
-    puxarDadosNuvem();
+    function agendarSalvamentoNuvem() {
+        if (sincronizandoNuvem) return;
+        clearTimeout(salvamentoAgendado);
+        salvamentoAgendado = setTimeout(salvarDadosNuvem, 120);
+    }
 
-    const originalSetItem = localStorage.setItem;
     localStorage.setItem = function(key, value) {
-        originalSetItem.apply(this, arguments);
-        salvarDadosNuvem();
+        originalSetItem(key, value);
+        if (deveSincronizar(key)) agendarSalvamentoNuvem();
     };
+    localStorage.removeItem = function(key) {
+        originalRemoveItem(key);
+        if (deveSincronizar(key)) agendarSalvamentoNuvem();
+    };
+
+    // Primeira carga, atualização ao voltar para a aba e verificação contínua a cada 1,5 segundo.
+    puxarDadosNuvem();
+    setInterval(puxarDadosNuvem, INTERVALO_SINCRONIZACAO_MS);
+    window.addEventListener('focus', puxarDadosNuvem);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') puxarDadosNuvem();
+    });
 })();
 </script>
-
 </body>
 </html>
