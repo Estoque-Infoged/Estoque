@@ -75,6 +75,8 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 .dashboard-kpi i { width:42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:13px; color:#fff; font-size:1rem; }
 .dashboard-kpi span { display:block; font-size:.73rem; color:#8b95a7; margin-bottom:4px; }
 .dashboard-kpi strong { display:block; color:#1f2937; font-size:1.4rem; line-height:1; }
+.dashboard-stock-kpis { grid-template-columns:repeat(4,1fr); }
+.stock-kpi-total i { background:linear-gradient(135deg,#6366f1,#8b5cf6); }.stock-kpi-zero i { background:linear-gradient(135deg,#ef4444,#b91c1c); }.stock-kpi-positive i { background:linear-gradient(135deg,#10b981,#059669); }.stock-kpi-low i { background:linear-gradient(135deg,#f59e0b,#d97706); }
 .kpi-purple i { background:linear-gradient(135deg,#6366f1,#8b5cf6); }.kpi-orange i { background:linear-gradient(135deg,#f59e0b,#f97316); }.kpi-green i { background:linear-gradient(135deg,#10b981,#14b8a6); }.kpi-blue i { background:linear-gradient(135deg,#0ea5e9,#2563eb); }
 .dashboard-section-heading { display:flex; align-items:center; gap:20px; margin-bottom:14px; }.dashboard-section-heading span { color:#9aa3b3; font-size:.65rem; font-weight:900; letter-spacing:.14em; }.dashboard-section-heading h4 { margin:4px 0 0; color:#303a4e; font-size:1.1rem; font-weight:800; }.dashboard-section-line { height:1px; flex:1; background:#e8ecf4; }
 .dashboard-status-pills { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin-bottom:20px; }
@@ -90,8 +92,8 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 .dashboard-new-card { background:#fff; border:1px solid #edf0f6; border-radius:21px; padding:22px; box-shadow:0 9px 25px rgba(31,41,55,.06); }
 .dashboard-new-card.wide,.dashboard-new-wide { grid-column:1 / -1; }
 .dashboard-new-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px; }.dashboard-new-card-head h5 { margin:5px 0 0; color:#253047; font-size:1rem; font-weight:800; }.dashboard-new-card-head>i { color:#667eea; font-size:1.1rem; background:#f0f2ff; padding:10px; border-radius:12px; }
-@media (max-width: 1000px) { .dashboard-hero { grid-template-columns:1fr 1fr; }.dashboard-hero-copy { grid-column:1/-1; }.dashboard-kpi-grid { grid-template-columns:repeat(2,1fr); } }
-@media (max-width: 700px) { .dashboard-command-header { align-items:flex-start; flex-direction:column; }.dashboard-hero,.dashboard-new-grid { grid-template-columns:1fr; }.dashboard-hero-copy,.dashboard-hero-alert,.dashboard-hero-total { grid-column:auto; }.dashboard-hero-total,.dashboard-hero-alert { border-left:0; border-top:1px solid rgba(255,255,255,.22); padding:14px 0 0; }.dashboard-kpi-grid { grid-template-columns:1fr; }.dashboard-new-wide { grid-column:auto; } }
+@media (max-width: 1000px) { .dashboard-hero { grid-template-columns:1fr 1fr; }.dashboard-hero-copy { grid-column:1/-1; }.dashboard-kpi-grid,.dashboard-stock-kpis { grid-template-columns:repeat(2,1fr); } }
+@media (max-width: 700px) { .dashboard-command-header { align-items:flex-start; flex-direction:column; }.dashboard-hero,.dashboard-new-grid { grid-template-columns:1fr; }.dashboard-hero-copy,.dashboard-hero-alert,.dashboard-hero-total { grid-column:auto; }.dashboard-hero-total,.dashboard-hero-alert { border-left:0; border-top:1px solid rgba(255,255,255,.22); padding:14px 0 0; }.dashboard-kpi-grid,.dashboard-stock-kpis { grid-template-columns:1fr; }.dashboard-new-wide { grid-column:auto; } }
 .dashboard-charts { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; }
 .dashboard-chart-card { background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.7); border-radius: 20px; padding: 22px; box-shadow: 0 10px 28px rgba(31,41,55,.08); }
 .dashboard-chart-card.wide { grid-column: 1 / -1; }
@@ -280,7 +282,7 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 <div id="dashboard" class="section-content">
 <div class="dashboard-command-header"><div><span class="dashboard-eyebrow">PAINEL OPERACIONAL</span><h2 class="dashboard-command-title">Central de Controle</h2><p class="dashboard-command-subtitle">Indicadores essenciais para acompanhar a rotina da assistência técnica.</p></div><div class="dashboard-live"><span class="dashboard-live-dot"></span> Sistema online</div></div>
 <div class="dashboard-hero"><div class="dashboard-hero-copy"><span>RESUMO DO AMBIENTE</span><h3>Operação em acompanhamento</h3><p>Use os indicadores abaixo para identificar prioridades e movimentações do estoque.</p></div><div class="dashboard-hero-total"><small>Total de equipamentos</small><strong id="count-total">0</strong><i class="fa-solid fa-layer-group"></i></div><div class="dashboard-hero-alert"><small>Atenção necessária</small><strong id="count-estoque-baixo">0</strong><span>itens em estoque baixo</span></div></div>
-<div class="dashboard-kpi-grid"><div class="dashboard-kpi kpi-purple"><i class="fa-solid fa-boxes-stacked"></i><div><span>Estoque disponível</span><strong id="count-estoque-total">0</strong></div></div><div class="dashboard-kpi kpi-orange"><i class="fa-solid fa-arrow-up-right-dots"></i><div><span>Peças retiradas</span><strong id="count-pecas-retiradas">0</strong></div></div><div class="dashboard-kpi kpi-green"><i class="fa-solid fa-users"></i><div><span>Clientes ativos</span><strong id="count-clientes">0</strong></div></div><div class="dashboard-kpi kpi-blue"><i class="fa-solid fa-user-gear"></i><div><span>Técnicos cadastrados</span><strong id="count-tecnicos">0</strong></div></div></div>
+<div class="dashboard-kpi-grid dashboard-stock-kpis"><div class="dashboard-kpi stock-kpi-total"><i class="fa-solid fa-boxes-stacked"></i><div><span>Total de produtos</span><strong id="count-produtos-total">0</strong></div></div><div class="dashboard-kpi stock-kpi-zero"><i class="fa-solid fa-circle-xmark"></i><div><span>Estoque zerado</span><strong id="count-produtos-zerados">0</strong></div></div><div class="dashboard-kpi stock-kpi-positive"><i class="fa-solid fa-circle-check"></i><div><span>Estoque positivo</span><strong id="count-produtos-positivos">0</strong></div></div><div class="dashboard-kpi stock-kpi-low"><i class="fa-solid fa-triangle-exclamation"></i><div><span>Estoque baixo</span><strong id="count-produtos-baixos">0</strong></div></div></div>
 <div class="dashboard-section-heading"><div><span>ANÁLISE OPERACIONAL</span><h4>Movimentações e distribuição</h4></div><div class="dashboard-section-line"></div></div>
 <div id="cardsStatusContainer" class="dashboard-status-pills"></div>
 <div class="dashboard-new-grid"><div class="dashboard-new-card dashboard-new-status"><div class="dashboard-new-card-head"><div><span class="dashboard-card-kicker">VISÃO DE STATUS</span><h5>Distribuição dos equipamentos</h5></div><i class="fa-solid fa-chart-pie"></i></div><div class="dashboard-chart-area dashboard-status-area"><div id="dashboardStatusVisual" class="dashboard-status-visual"></div></div></div><div class="dashboard-new-card"><div class="dashboard-new-card-head"><div><span class="dashboard-card-kicker">INVENTÁRIO</span><h5>Peças com maior saldo</h5></div><i class="fa-solid fa-cubes-stacked"></i></div><div class="dashboard-chart-area"><div id="dashboardEstoqueVisual" class="dashboard-bars"></div></div></div><div class="dashboard-new-card dashboard-new-wide"><div class="dashboard-new-card-head"><div><span class="dashboard-card-kicker">MOVIMENTAÇÃO</span><h5>Retiradas recentes</h5></div><i class="fa-solid fa-chart-column"></i></div><div class="dashboard-chart-area"><div id="dashboardConsumoVisual" class="dashboard-bars consumo-bars"></div></div></div></div>
@@ -1319,15 +1321,17 @@ const clientesSet = new Set(); db.forEach(item => { if(item.cliente) clientesSet
 let totalPecasRetiradas = 0;
 db.forEach(eq => { if(eq.pecas && eq.pecas.length > 0) { eq.pecas.forEach(peca => { totalPecasRetiradas += (peca.quantidade || 0); }); } });
 
-const totalEstoque = estoque.reduce((sum, item) => sum + (item.quantidade || 0), 0);
-const estoqueBaixo = estoque.filter(item => item.quantidade <= item.minimo).length;
+const totalProdutos = estoque.length;
+const produtosZerados = estoque.filter(item => (Number(item.quantidade) || 0) <= 0).length;
+const produtosBaixos = estoque.filter(item => { const quantidade=Number(item.quantidade)||0; const minimo=Number(item.minimo)||1; return quantidade > 0 && quantidade <= minimo; }).length;
+const produtosPositivos = estoque.filter(item => { const quantidade=Number(item.quantidade)||0; const minimo=Number(item.minimo)||1; return quantidade > minimo; }).length;
 
 document.getElementById('count-total').innerText = db.length;
-document.getElementById('count-pecas-retiradas').innerText = totalPecasRetiradas;
-document.getElementById('count-estoque-total').innerText = totalEstoque;
-document.getElementById('count-estoque-baixo').innerText = estoqueBaixo;
-document.getElementById('count-clientes').innerText = clientesSet.size;
-document.getElementById('count-tecnicos').innerText = tecnicos.length;
+document.getElementById('count-produtos-total').innerText = totalProdutos;
+document.getElementById('count-produtos-zerados').innerText = produtosZerados;
+document.getElementById('count-produtos-positivos').innerText = produtosPositivos;
+document.getElementById('count-produtos-baixos').innerText = produtosBaixos;
+document.getElementById('count-estoque-baixo').innerText = produtosBaixos;
 gerarCardsStatusDashboard();
 atualizarGrafico();
 }
