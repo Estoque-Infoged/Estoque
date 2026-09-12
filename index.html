@@ -116,7 +116,10 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 .dashboard-empty { height:100%; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:.88rem; }
 .dashboard-bars { height:100%; display:flex; flex-direction:column; justify-content:center; gap:11px; overflow:auto; padding:4px 2px; }
 .dashboard-bar-row { display:grid; grid-template-columns:minmax(120px, 1fr) 3fr 38px; gap:10px; align-items:center; font-size:.76rem; color:#4b5563; }
-.dashboard-bar-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; }
+.dashboard-bar-label { min-width:0; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; line-height:1.15; }
+.dashboard-bar-label strong,.dashboard-bar-label small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dashboard-bar-label strong { font-size:.76rem; color:#4b5563; font-weight:700; }
+.dashboard-bar-label small { margin-top:2px; font-size:.66rem; color:#9ca3af; }
 .dashboard-bar-track { height:13px; background:#eef2ff; border-radius:999px; overflow:hidden; }
 .dashboard-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#667eea,#764ba2); min-width:3px; transition:width .45s ease; }
 .consumo-bars .dashboard-bar-fill { background:linear-gradient(90deg,#f59e0b,#f97316); }
@@ -1005,7 +1008,7 @@ function renderBarrasDashboard(id, itens, classe){
  const el=document.getElementById(id); if(!el) return;
  if(!itens.length){el.innerHTML='<div class="dashboard-empty">Nenhum dado disponível.</div>'; return;}
  const max=Math.max(...itens.map(item=>Number(item.valor)||0),1);
- el.innerHTML=itens.map(item=>'<div class="dashboard-bar-row"><span class="dashboard-bar-label" title="'+String(item.nome).replace(/"/g,'&quot;')+'">'+item.nome+'</span><span class="dashboard-bar-track"><span class="dashboard-bar-fill '+(classe||'')+'" style="width:'+Math.max(3,((Number(item.valor)||0)/max)*100)+'%"></span></span><span class="dashboard-bar-value">'+(Number(item.valor)||0)+'</span></div>').join('');
+ el.innerHTML=itens.map(item=>{ const nome=escaparDashboard(item.nome||'Peça'); const modelo=item.modelo?'<small>Modelo: '+escaparDashboard(item.modelo)+'</small>':''; return '<div class="dashboard-bar-row"><span class="dashboard-bar-label" title="'+nome+'"><strong>'+nome+'</strong>'+modelo+'</span><span class="dashboard-bar-track"><span class="dashboard-bar-fill '+(classe||'')+'" style="width:'+Math.max(3,((Number(item.valor)||0)/max)*100)+'%"></span></span><span class="dashboard-bar-value">'+(Number(item.valor)||0)+'</span></div>'; }).join('');
 }
 function renderMovimentacoesDashboard(){
  const el=document.getElementById('dashboardConsumoVisual'); if(!el) return;
@@ -1015,7 +1018,7 @@ function renderMovimentacoesDashboard(){
  el.innerHTML=consumo.map(item=>{ const peca=estoque.find(p=>p.id==item.pecaId) || estoque.find(p=>String(p.codigo||'')===String(item.pecaCodigo||'')); const tecnico=tecnicos.find(t=>t.id==item.tecnicoId); const modelo=peca && peca.modelo ? peca.modelo : '-'; const nomeTecnico=tecnico ? tecnico.nome : 'Técnico não identificado'; return '<div class="dashboard-movement-row"><div class="dashboard-movement-main"><strong>'+escaparDashboard(item.pecaNome || '-')+'</strong><span>Modelo: '+escaparDashboard(modelo)+'</span></div><div class="dashboard-movement-meta"><span class="dashboard-retirada-badge"><i class="fa-solid fa-ticket"></i> Retirada: '+escaparDashboard(item.codigoRetirada || '-')+'</span><small><i class="fa-solid fa-user-gear me-1"></i>'+escaparDashboard(nomeTecnico)+'</small></div><div class="dashboard-movement-qty">'+escaparDashboard(item.quantidade || 0)+'</div></div>'; }).join('');
 }
 function atualizarGraficosDashboard(){
- const estoque=getEstoqueDB(); const estoqueOrdenado=estoque.slice().sort((a,b)=>(Number(b.quantidade)||0)-(Number(a.quantidade)||0)).slice(0,8).map(item=>{ const nome=String(item.nome||'Peça'); const modelo=String(item.modelo||'Modelo não informado'); const rotulo=nome+' — '+modelo; return {nome:rotulo.length>42?rotulo.slice(0,42)+'…':rotulo,valor:Number(item.quantidade)||0}; });
+ const estoque=getEstoqueDB(); const estoqueOrdenado=estoque.slice().sort((a,b)=>(Number(b.quantidade)||0)-(Number(a.quantidade)||0)).slice(0,8).map(item=>({nome:String(item.nome||'Peça'),modelo:String(item.modelo||'Modelo não informado'),valor:Number(item.quantidade)||0}));
  renderBarrasDashboard('dashboardEstoqueVisual',estoqueOrdenado,'');
  renderMovimentacoesDashboard();
 }
