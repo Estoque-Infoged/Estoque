@@ -522,6 +522,26 @@ body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verda
 <script>
 // ATUALIZAÇÃO GLOBAL IMEDIATA DAS TELAS
 let usuarioLogado = null;
+
+// BLOQUEIO COMPARTILHADO DE EDIÇÃO ENTRE COMPUTADOR E CELULAR
+const TEMPO_BLOQUEIO_EDICAO_MS = 45000;
+let bloqueioEdicaoAtual = null;
+const idSessaoEdicao = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now())+'-'+Math.random().toString(36).slice(2);
+function getBloqueiosEdicao(){ try{return JSON.parse(localStorage.getItem('edicao_locks_db')||'{}')||{};}catch(e){return{};} }
+function saveBloqueiosEdicao(bloqueios){ localStorage.setItem('edicao_locks_db',JSON.stringify(bloqueios||{})); }
+function nomeUsuarioEdicao(){ return usuarioLogado ? (usuarioLogado.nome||usuarioLogado.usuario||'Usuário') : 'Usuário'; }
+function chaveBloqueioEdicao(tipo,id){ return String(tipo)+':'+String(id); }
+function limparBloqueiosExpirados(){ const agora=Date.now(); const bloqueios=getBloqueiosEdicao(); let mudou=false; Object.keys(bloqueios).forEach(chave=>{if(!bloqueios[chave]||Number(bloqueios[chave].expiraEm)<=agora){delete bloqueios[chave];mudou=true;}}); if(mudou)saveBloqueiosEdicao(bloqueios); return bloqueios; }
+function adquirirBloqueioEdicao(tipo,id){
+ const chave=chaveBloqueioEdicao(tipo,id); const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[chave];
+ if(atual && atual.sessao!==idSessaoEdicao){ alert('Este registro está sendo editado por '+(atual.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
+ const agora=Date.now(); bloqueios[chave]={sessao:idSessaoEdicao,usuario:nomeUsuarioEdicao(),abertoEm:atual?.abertoEm||agora,expiraEm:agora+TEMPO_BLOQUEIO_EDICAO_MS}; saveBloqueiosEdicao(bloqueios); bloqueioEdicaoAtual={chave,tipo,id}; return true;
+}
+function renovarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return; const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(!atual||atual.sessao!==idSessaoEdicao){bloqueioEdicaoAtual=null;return;} atual.expiraEm=Date.now()+TEMPO_BLOQUEIO_EDICAO_MS; bloqueios[bloqueioEdicaoAtual.chave]=atual; saveBloqueiosEdicao(bloqueios); }
+function validarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return true; const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(atual&&atual.sessao===idSessaoEdicao){renovarBloqueioEdicao();return true;} bloqueioEdicaoAtual=null; alert('Sua edição perdeu o bloqueio porque outro usuário assumiu o registro. Nada foi salvo para evitar sobrescrever informações.'); return false; }
+function liberarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return; const bloqueios=getBloqueiosEdicao(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(atual&&atual.sessao===idSessaoEdicao){delete bloqueios[bloqueioEdicaoAtual.chave];saveBloqueiosEdicao(bloqueios);} bloqueioEdicaoAtual=null; }
+setInterval(renovarBloqueioEdicao,10000);
+window.addEventListener('beforeunload',liberarBloqueioEdicao);
 let atualizacaoVisualAgendada=false;
 function atualizarTodasAsTelasAgora(){
  if(atualizacaoVisualAgendada)return;
@@ -587,6 +607,7 @@ modalEditarEquipamento = new bootstrap.Modal(document.getElementById('modalEdita
 modalStatus = new bootstrap.Modal(document.getElementById('modalStatus'));
 modalEditarCliente = new bootstrap.Modal(document.getElementById('modalEditarCliente'));
 modalEditarModelo = new bootstrap.Modal(document.getElementById('modalEditarModelo'));
+[modalEditarEquipamento,modalEditarPeca,modalEditarCliente,modalEditarModelo,modalEditarTecnico,modalStatus].forEach(modal=>{if(modal)modal._element.addEventListener('hidden.bs.modal',liberarBloqueioEdicao);});
 
 const hoje = new Date();
 const dataFormatada = hoje.toLocaleDateString('pt-BR').split('/').reverse().join('-');
@@ -876,8 +897,8 @@ function initAuth(){
  const ts=getTecnicosDB(); let mudou=false;
  ts.forEach(t=>{ const p=normalizarPermissoes(t); if(JSON.stringify(t.permissoes||{})!==JSON.stringify(p)){ t.permissoes=p; mudou=true; }});
  if(mudou) saveTecnicosDB(ts);
- const sessao=localStorage.getItem('sessao_usuario');
- if(sessao){ try{ usuarioLogado=JSON.parse(sessao); if(usuarioLogado.role==='tecnico'){ const t=ts.find(x=>x.id==usuarioLogado.tecnicoId); if(!t){ fazerLogout(); return; } usuarioLogado.permissoes=normalizarPermissoes(t); localStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); } aplicarPermissoes(); }catch(e){ fazerLogout(); } }
+ const sessao=localStorage.getItem('sessao_usuario') || sessionStorage.getItem('sessao_usuario');
+ if(sessao){ try{ usuarioLogado=JSON.parse(sessao); localStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); sessionStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); if(usuarioLogado.role==='tecnico'){ const t=ts.find(x=>x.id==usuarioLogado.tecnicoId); if(!t){ fazerLogout(); return; } usuarioLogado.permissoes=normalizarPermissoes(t); localStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); sessionStorage.setItem('sessao_usuario',JSON.stringify(usuarioLogado)); } aplicarPermissoes(); }catch(e){ fazerLogout(); } }
  else { document.getElementById('authOverlay').style.display='flex'; }
 }
 function fazerLogin(){
@@ -889,9 +910,9 @@ function fazerLogin(){
    if(t) autenticado={usuario:t.nome,nome:t.nome,role:'tecnico',tecnicoId:t.id,permissoes:normalizarPermissoes(t)};
  }
  if(!autenticado){ erro.textContent='Usuário ou senha incorretos.'; erro.classList.remove('d-none'); return; }
- usuarioLogado=autenticado; localStorage.setItem('sessao_usuario',JSON.stringify(autenticado)); registrarAtividade('Login realizado','Entrou no sistema','Acesso'); erro.classList.add('d-none'); document.getElementById('authOverlay').style.display='none'; aplicarPermissoes();
+ usuarioLogado=autenticado; localStorage.setItem('sessao_usuario',JSON.stringify(autenticado)); sessionStorage.setItem('sessao_usuario',JSON.stringify(autenticado)); registrarAtividade('Login realizado','Entrou no sistema','Acesso'); erro.classList.add('d-none'); document.getElementById('authOverlay').style.display='none'; aplicarPermissoes();
 }
-function fazerLogout(){ registrarAtividade('Logout realizado','Saiu do sistema','Acesso'); localStorage.removeItem('sessao_usuario'); usuarioLogado=null; document.getElementById('authOverlay').style.display='flex'; document.getElementById('loginUsuario').value=''; document.getElementById('loginSenha').value=''; document.getElementById('loginUsuario').focus(); }
+function fazerLogout(){ registrarAtividade('Logout realizado','Saiu do sistema','Acesso'); localStorage.removeItem('sessao_usuario'); sessionStorage.removeItem('sessao_usuario'); usuarioLogado=null; document.getElementById('authOverlay').style.display='flex'; document.getElementById('loginUsuario').value=''; document.getElementById('loginSenha').value=''; document.getElementById('loginUsuario').focus(); }
 function isAdmin(){ return usuarioLogado && usuarioLogado.role==='admin'; }
 function temPermissao(id){ return isAdmin() || !!(usuarioLogado && usuarioLogado.permissoes && usuarioLogado.permissoes[id]); }
 function exigirPermissao(id, mensagem){ if(isAdmin()) return true; if(temPermissao(id)) return true; alert(mensagem || 'Seu usuário não tem permissão para esta ação.'); return false; }
@@ -1608,12 +1629,13 @@ saveDB(db.filter(i => i.id !== id)); const pecasDetalhes=(item.pecas||[]).map(p=
 }
 }
 
-function abrirModalStatus(id) { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; const item = getDB().find(i => i.id === id); if(item) { document.getElementById('editId').value = item.id; document.getElementById('editStatus').value = item.status; modalStatus.show(); } }
-function salvarNovoStatus() { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; const id = parseInt(document.getElementById('editId').value); const novoStatus = document.getElementById('editStatus').value; const db = getDB(); const idx = db.findIndex(i => i.id === id); if(idx !== -1) { db[idx].status = novoStatus; saveDB(db); modalStatus.hide(); } }
+function abrirModalStatus(id) { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; const item = getDB().find(i => i.id === id); if(item && !adquirirBloqueioEdicao('equipamento_status',item.id)) return; if(item) { document.getElementById('editId').value = item.id; document.getElementById('editStatus').value = item.status; modalStatus.show(); } }
+function salvarNovoStatus() { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; if(!validarBloqueioEdicao()) return; const id = parseInt(document.getElementById('editId').value); const novoStatus = document.getElementById('editStatus').value; const db = getDB(); const idx = db.findIndex(i => i.id === id); if(idx !== -1) { db[idx].status = novoStatus; saveDB(db); modalStatus.hide(); } }
 
 function abrirModalEditarEquipamento(id) {
 if(!exigirPermissao('equipamento_editar','Você não tem permissão para editar equipamentos.')) return;
 const db = getDB(); const item = db.find(i => i.id === id);
+if(item && !adquirirBloqueioEdicao('equipamento',item.id)) return;
 if(item) {
 document.getElementById('editEquipId').value = item.id;
 document.getElementById('editEquipOs').value = item.os || '';
@@ -1637,6 +1659,7 @@ modalEditarEquipamento.show();
 
 function salvarEdicaoEquipamento() {
 if(!exigirPermissao('equipamento_editar','Você não tem permissão para editar equipamentos.')) return;
+if(!validarBloqueioEdicao()) return;
 const id = parseInt(document.getElementById('editEquipId').value); const db = getDB(); const idx = db.findIndex(i => i.id === id);
 if(idx !== -1) {
 const oldPecas = db[idx].pecas || []; const newPecas = pecasEdicaoOs; const osNumero = document.getElementById('editEquipOs').value;
@@ -1813,9 +1836,10 @@ tbody.appendChild(tr);
 });
 }
 
-function abrirEditarCliente(nome) { if(!exigirPermissao('clientes_editar','Você não tem permissão para editar clientes.')) return; document.getElementById('editClienteNomeOriginal').value = nome; document.getElementById('editClienteNome').value = nome; modalEditarCliente.show(); }
+function abrirEditarCliente(nome) { if(!exigirPermissao('clientes_editar','Você não tem permissão para editar clientes.')) return; if(!adquirirBloqueioEdicao('cliente',nome)) return; document.getElementById('editClienteNomeOriginal').value = nome; document.getElementById('editClienteNome').value = nome; modalEditarCliente.show(); }
 function salvarEdicaoCliente() {
 if(!exigirPermissao('clientes_editar','Você não tem permissão para editar clientes.')) return;
+if(!validarBloqueioEdicao()) return;
 const nomeOriginal = document.getElementById('editClienteNomeOriginal').value; const novoNome = document.getElementById('editClienteNome').value;
 if(!novoNome) return alert('Nome obrigatório.');
 const db = getDB(); let atualizou = false;
@@ -1844,9 +1868,10 @@ tbody.appendChild(tr);
 });
 }
 
-function abrirEditarModelo(nome) { if(!exigirPermissao('modelos_editar','Você não tem permissão para editar modelos.')) return; document.getElementById('editModeloNomeOriginal').value = nome; document.getElementById('editModeloNome').value = nome; modalEditarModelo.show(); }
+function abrirEditarModelo(nome) { if(!exigirPermissao('modelos_editar','Você não tem permissão para editar modelos.')) return; if(!adquirirBloqueioEdicao('modelo',nome)) return; document.getElementById('editModeloNomeOriginal').value = nome; document.getElementById('editModeloNome').value = nome; modalEditarModelo.show(); }
 function salvarEdicaoModelo() {
 if(!exigirPermissao('modelos_editar','Você não tem permissão para editar modelos.')) return;
+if(!validarBloqueioEdicao()) return;
 const nomeOriginal = document.getElementById('editModeloNomeOriginal').value; const novoNome = document.getElementById('editModeloNome').value;
 if(!novoNome) return alert('Nome obrigatório.');
 const db = getDB(); let atualizou = false;
@@ -2064,6 +2089,7 @@ const novaPeca = { id: Date.now(), codigo: codigo ? codigo.toUpperCase() : '', c
 
 function abrirEditarPeca(id) { if(!exigirPermissao('estoque_editar','Você não tem permissão para editar peças do estoque.')) return;
 const estoque = getEstoqueDB(); const item = estoque.find(p => String(p.id) === String(id));
+if(item && !adquirirBloqueioEdicao('estoque',item.id)) return;
 if(item) {
 document.getElementById('editPecaId').value = item.id; document.getElementById('editPecaCodigo').value = item.codigo || '';
 document.getElementById('editPecaModelo').value = item.modelo || ''; document.getElementById('editPecaPrateleira').value = item.prateleira || '';
@@ -2073,7 +2099,7 @@ modalEditarPeca.show();
 }
 }
 
-function salvarEdicaoPeca() { if(!exigirPermissao('estoque_editar','Você não tem permissão para editar peças do estoque.')) return;
+function salvarEdicaoPeca() { if(!exigirPermissao('estoque_editar','Você não tem permissão para editar peças do estoque.')) return; if(!validarBloqueioEdicao()) return;
 const id = document.getElementById('editPecaId').value;
 const novoCodigo = document.getElementById('editPecaCodigo').value.trim().toUpperCase();
 const novoModelo = document.getElementById('editPecaModelo').value.trim();
@@ -2257,10 +2283,10 @@ function renderizarTabelaConsumo(dados) {
 }
 function selecionarPecaConsumo() { pecaSelecionadaConsumo=encontrarPecaConsumo(document.getElementById('consumoPeca')?.value,getEstoqueDB()); return pecaSelecionadaConsumo; }
 function limparFormConsumo() { const form=document.getElementById('formConsumo'); if(form)form.reset(); const id=document.getElementById('consumoId'); if(id)id.value=''; const data=document.getElementById('consumoData'); if(data)data.value=new Date().toISOString().slice(0,10); pecaSelecionadaConsumo=null; }
-function editarConsumo(id) { if(!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'))return; const item=getConsumoDB().find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); document.getElementById('consumoId').value=item.id; document.getElementById('consumoPeca').value=(item.pecaCodigo?item.pecaCodigo+' - ':'')+item.pecaNome; document.getElementById('consumoQuantidade').value=Number(item.quantidade)||1; document.getElementById('consumoTecnico').value=item.tecnicoId; document.getElementById('consumoOS').value=item.os||''; document.getElementById('consumoData').value=item.data||new Date().toISOString().slice(0,10); document.getElementById('consumoObs').value=item.obs||''; pecaSelecionadaConsumo=encontrarPecaConsumo(document.getElementById('consumoPeca').value,getEstoqueDB())||getEstoqueDB().find(p=>String(p.id)===String(item.pecaId)); document.getElementById('formConsumo').scrollIntoView({behavior:'smooth',block:'center'}); alert('Dados carregados! Agora você pode editar e salvar.'); }
+function editarConsumo(id) { if(!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'))return; const item=getConsumoDB().find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); if(!adquirirBloqueioEdicao('consumo',item.id))return; document.getElementById('consumoId').value=item.id; document.getElementById('consumoPeca').value=(item.pecaCodigo?item.pecaCodigo+' - ':'')+item.pecaNome; document.getElementById('consumoQuantidade').value=Number(item.quantidade)||1; document.getElementById('consumoTecnico').value=item.tecnicoId; document.getElementById('consumoOS').value=item.os||''; document.getElementById('consumoData').value=item.data||new Date().toISOString().slice(0,10); document.getElementById('consumoObs').value=item.obs||''; pecaSelecionadaConsumo=encontrarPecaConsumo(document.getElementById('consumoPeca').value,getEstoqueDB())||getEstoqueDB().find(p=>String(p.id)===String(item.pecaId)); document.getElementById('formConsumo').scrollIntoView({behavior:'smooth',block:'center'}); alert('Dados carregados! Agora você pode editar e salvar.'); }
 const formularioConsumo=document.getElementById('formConsumo');
 if(formularioConsumo) formularioConsumo.addEventListener('submit',function(e){
- e.preventDefault(); const idCampo=document.getElementById('consumoId'), consumoId=idCampo?.value||''; if(consumoId?!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'):!exigirPermissao('consumo_registrar','Você não tem permissão para registrar consumos.'))return;
+ e.preventDefault(); const idCampo=document.getElementById('consumoId'), consumoId=idCampo?.value||''; if(consumoId&&!validarBloqueioEdicao())return; if(consumoId?!exigirPermissao('consumo_editar','Você não tem permissão para editar consumos.'):!exigirPermissao('consumo_registrar','Você não tem permissão para registrar consumos.'))return;
  const peca=selecionarPecaConsumo(); const quantidade=Number.parseInt(document.getElementById('consumoQuantidade').value,10); const tecnicoId=document.getElementById('consumoTecnico').value;
  if(!peca)return alert('Selecione uma peça válida da lista de estoque.'); if(!Number.isInteger(quantidade)||quantidade<=0)return alert('Informe uma quantidade maior que zero.'); if(!tecnicoId)return alert('Selecione um técnico!');
  const consumo=getConsumoDB(), estoque=getEstoqueDB(), idx=consumoId?consumo.findIndex(c=>String(c.id)===String(consumoId)):-1, antigo=idx>=0?consumo[idx]:null;
@@ -2271,7 +2297,7 @@ if(formularioConsumo) formularioConsumo.addEventListener('submit',function(e){
  if(antigo&&antigaPeca&&String(antigaPeca.id)!==String(novaPeca.id))antigaPeca.quantidade=(Number(antigaPeca.quantidade)||0)+(Number(antigo.quantidade)||0);
  novaPeca.quantidade=saldoDisponivel-quantidade;
  const registro={id:antigo?antigo.id:Date.now(),codigoRetirada:antigo?.codigoRetirada||gerarCodigoRetiradaUnico(consumo),pecaId:novaPeca.id,pecaCodigo:novaPeca.codigo,pecaCodigoBarras:obterCodigoBarrasEstoque(novaPeca),pecaNome:novaPeca.nome,pecaModelo:novaPeca.modelo||'',quantidade,tecnicoId,os:document.getElementById('consumoOS').value.trim(),data:document.getElementById('consumoData').value,obs:document.getElementById('consumoObs').value.trim()};
- if(idx>=0)consumo[idx]=registro;else consumo.push(registro); saveEstoqueDB(estoque); saveConsumoDB(consumo); const tecnicoNome=getTecnicosDB().find(t=>String(t.id)===String(tecnicoId))?.nome||'-'; registrarAtividade(antigo?'Consumo atualizado':'Consumo registrado','Técnico: '+tecnicoNome+'; peça: '+registro.pecaNome+'; código: '+(registro.pecaCodigo||'-')+'; código de barras: '+(registro.pecaCodigoBarras||'-')+'; modelo: '+(registro.pecaModelo||'-')+'; quantidade consumida: '+quantidade+'; OS/equipamento: '+(registro.os||'-')+'; data do consumo: '+(registro.data||'-')+'; observação: '+(registro.obs||'-')+'; saldo atual: '+novaPeca.quantidade,'Consumo'); limparFormConsumo(); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert(antigo?'Consumo atualizado e estoque recalculado!':'Saída registrada! O estoque foi baixado e o consumo apareceu no histórico.');
+ if(idx>=0)consumo[idx]=registro;else consumo.push(registro); saveEstoqueDB(estoque); saveConsumoDB(consumo); if(consumoId) liberarBloqueioEdicao(); const tecnicoNome=getTecnicosDB().find(t=>String(t.id)===String(tecnicoId))?.nome||'-'; registrarAtividade(antigo?'Consumo atualizado':'Consumo registrado','Técnico: '+tecnicoNome+'; peça: '+registro.pecaNome+'; código: '+(registro.pecaCodigo||'-')+'; código de barras: '+(registro.pecaCodigoBarras||'-')+'; modelo: '+(registro.pecaModelo||'-')+'; quantidade consumida: '+quantidade+'; OS/equipamento: '+(registro.os||'-')+'; data do consumo: '+(registro.data||'-')+'; observação: '+(registro.obs||'-')+'; saldo atual: '+novaPeca.quantidade,'Consumo'); limparFormConsumo(); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert(antigo?'Consumo atualizado e estoque recalculado!':'Saída registrada! O estoque foi baixado e o consumo apareceu no histórico.');
 });
 function excluirConsumo(id) { if(!exigirPermissao('consumo_excluir','Você não tem permissão para excluir consumos.'))return; if(!confirm('Excluir registro de consumo? A quantidade será devolvida ao estoque.'))return; const consumo=getConsumoDB(), item=consumo.find(c=>String(c.id)===String(id)); if(!item)return alert('Registro não encontrado!'); const estoque=getEstoqueDB(), peca=estoque.find(p=>String(p.id)===String(item.pecaId))||estoque.find(p=>String(p.codigo||'')===String(item.pecaCodigo||'')&&String(p.nome||'')===String(item.pecaNome||'')); if(!peca)return alert('A peça não existe mais no estoque; o consumo não foi excluído para evitar perda de informação.'); peca.quantidade=(Number(peca.quantidade)||0)+(Number(item.quantidade)||0); saveEstoqueDB(estoque); saveConsumoDB(consumo.filter(c=>String(c.id)!==String(id))); registrarAtividade('Consumo excluído','Técnico: '+(getTecnicosDB().find(t=>String(t.id)===String(item.tecnicoId))?.nome||'-')+'; peça: '+(item.pecaNome||'-')+'; código: '+(item.pecaCodigo||'-')+'; modelo: '+(item.pecaModelo||'-')+'; quantidade excluída: '+(item.quantidade||0)+'; quantidade devolvida ao estoque: '+(item.quantidade||0)+'; OS/equipamento: '+(item.os||'-'),'Consumo'); carregarEstoque(); carregarConsumo(); atualizarDashboard(); alert('Consumo excluído e '+item.quantidade+' unidade(s) devolvida(s) ao estoque.'); }
 
@@ -2311,8 +2337,8 @@ function salvarTecnico() {
  else { if(!senha) return alert('A senha do técnico é obrigatória.'); if(tecnicos.some(t=>(t.nome||'').toLowerCase()===nome.toLowerCase())) return alert('Já existe um técnico com esse nome.'); tecnicos.push({id:Date.now(),nome,telefone,email,senha,permissoes:permissoesPadraoTecnico()}); saveTecnicosDB(tecnicos); renderTabelaPermissoesTecnicos(); alert('Técnico cadastrado com senha!'); }
  modalNovoTecnico.hide(); renderTabelaSenhasTecnicos();
 }
-function abrirEditarTecnico(id) { if(!exigirAdmin()) return; const tecnicos=getTecnicosDB(); const t=tecnicos.find(t=>t.id==id); if(t){ document.getElementById('editTecnicoId').value=t.id; document.getElementById('editTecnicoNome').value=t.nome; document.getElementById('editTecnicoTelefone').value=t.telefone||''; document.getElementById('editTecnicoEmail').value=t.email||''; document.getElementById('editTecnicoSenha').value=''; modalEditarTecnico.show(); } }
-function salvarEdicaoTecnico() { if(!exigirAdmin()) return; const id=document.getElementById('editTecnicoId').value; const nome=document.getElementById('editTecnicoNome').value.trim(); const telefone=document.getElementById('editTecnicoTelefone').value.trim(); const email=document.getElementById('editTecnicoEmail').value.trim(); const senha=document.getElementById('editTecnicoSenha').value.trim(); if(!nome) return alert('Nome é obrigatório.'); const tecnicos=getTecnicosDB(); const idx=tecnicos.findIndex(t=>t.id==id); if(idx!==-1){ tecnicos[idx].nome=nome; tecnicos[idx].telefone=telefone; tecnicos[idx].email=email; if(senha) tecnicos[idx].senha=senha; tecnicos[idx].permissoes=normalizarPermissoes(tecnicos[idx]); saveTecnicosDB(tecnicos); modalEditarTecnico.hide(); renderTabelaSenhasTecnicos(); alert('Técnico atualizado!'); } }
+function abrirEditarTecnico(id) { if(!exigirAdmin()) return; const tecnicos=getTecnicosDB(); const t=tecnicos.find(t=>t.id==id); if(t && !adquirirBloqueioEdicao('tecnico',t.id)) return; if(t){ document.getElementById('editTecnicoId').value=t.id; document.getElementById('editTecnicoNome').value=t.nome; document.getElementById('editTecnicoTelefone').value=t.telefone||''; document.getElementById('editTecnicoEmail').value=t.email||''; document.getElementById('editTecnicoSenha').value=''; modalEditarTecnico.show(); } }
+function salvarEdicaoTecnico() { if(!exigirAdmin()) return; if(!validarBloqueioEdicao()) return; const id=document.getElementById('editTecnicoId').value; const nome=document.getElementById('editTecnicoNome').value.trim(); const telefone=document.getElementById('editTecnicoTelefone').value.trim(); const email=document.getElementById('editTecnicoEmail').value.trim(); const senha=document.getElementById('editTecnicoSenha').value.trim(); if(!nome) return alert('Nome é obrigatório.'); const tecnicos=getTecnicosDB(); const idx=tecnicos.findIndex(t=>t.id==id); if(idx!==-1){ tecnicos[idx].nome=nome; tecnicos[idx].telefone=telefone; tecnicos[idx].email=email; if(senha) tecnicos[idx].senha=senha; tecnicos[idx].permissoes=normalizarPermissoes(tecnicos[idx]); saveTecnicosDB(tecnicos); modalEditarTecnico.hide(); renderTabelaSenhasTecnicos(); alert('Técnico atualizado!'); } }
  function excluirTecnico(id) { if(!exigirAdmin()) return; if(confirm('Excluir técnico?')) { const tecnicos = getTecnicosDB(); const tecnico=tecnicos.find(t=>String(t.id)===String(id)); saveTecnicosDB(tecnicos.filter(t => t.id != id)); registrarAtividade('Técnico excluído','Técnico removido: '+(tecnico?.nome||'ID '+id)+'; telefone: '+(tecnico?.telefone||'-')+'; e-mail: '+(tecnico?.email||'-'),'Técnicos'); renderTabelaPermissoesTecnicos(); } }
 
 // Garantias de permissão em ações de consumo
