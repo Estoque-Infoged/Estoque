@@ -531,11 +531,21 @@ function getBloqueiosEdicao(){ try{return JSON.parse(localStorage.getItem('edica
 function saveBloqueiosEdicao(bloqueios){ localStorage.setItem('edicao_locks_db',JSON.stringify(bloqueios||{})); }
 function nomeUsuarioEdicao(){ return usuarioLogado ? (usuarioLogado.nome||usuarioLogado.usuario||'Usuário') : 'Usuário'; }
 function chaveBloqueioEdicao(tipo,id){ return String(tipo)+':'+String(id); }
+function atualizarBloqueiosEdicaoAntesDeAbrir(){
+ try{
+  const xhr=new XMLHttpRequest(); xhr.open('GET','/api/state?lock_check='+Date.now(),false); xhr.setRequestHeader('Cache-Control','no-cache'); xhr.send(null);
+  if(xhr.status>=200&&xhr.status<300){ const remoto=JSON.parse(xhr.responseText||'{}'); const locks=remoto?.data?.edicao_locks_db; if(locks!==undefined) localStorage.setItem('edicao_locks_db',typeof locks==='string'?locks:JSON.stringify(locks)); }
+ }catch(e){ console.warn('Não foi possível verificar o bloqueio compartilhado agora:',e); }
+}
 function limparBloqueiosExpirados(){ const agora=Date.now(); const bloqueios=getBloqueiosEdicao(); let mudou=false; Object.keys(bloqueios).forEach(chave=>{if(!bloqueios[chave]||Number(bloqueios[chave].expiraEm)<=agora){delete bloqueios[chave];mudou=true;}}); if(mudou)saveBloqueiosEdicao(bloqueios); return bloqueios; }
 function adquirirBloqueioEdicao(tipo,id){
+ atualizarBloqueiosEdicaoAntesDeAbrir();
  const chave=chaveBloqueioEdicao(tipo,id); const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[chave];
  if(atual && atual.sessao!==idSessaoEdicao){ alert('Este registro está sendo editado por '+(atual.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
- const agora=Date.now(); bloqueios[chave]={sessao:idSessaoEdicao,usuario:nomeUsuarioEdicao(),abertoEm:atual?.abertoEm||agora,expiraEm:agora+TEMPO_BLOQUEIO_EDICAO_MS}; saveBloqueiosEdicao(bloqueios); bloqueioEdicaoAtual={chave,tipo,id}; return true;
+ const agora=Date.now(); bloqueios[chave]={sessao:idSessaoEdicao,usuario:nomeUsuarioEdicao(),abertoEm:atual?.abertoEm||agora,expiraEm:agora+TEMPO_BLOQUEIO_EDICAO_MS}; saveBloqueiosEdicao(bloqueios);
+ atualizarBloqueiosEdicaoAntesDeAbrir(); const confirmado=getBloqueiosEdicao()[chave];
+ if(confirmado && confirmado.sessao!==idSessaoEdicao){ alert('Este registro acabou de ser aberto por '+(confirmado.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
+ bloqueioEdicaoAtual={chave,tipo,id}; return true;
 }
 function renovarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return; const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(!atual||atual.sessao!==idSessaoEdicao){bloqueioEdicaoAtual=null;return;} atual.expiraEm=Date.now()+TEMPO_BLOQUEIO_EDICAO_MS; bloqueios[bloqueioEdicaoAtual.chave]=atual; saveBloqueiosEdicao(bloqueios); }
 function validarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return true; const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(atual&&atual.sessao===idSessaoEdicao){renovarBloqueioEdicao();return true;} bloqueioEdicaoAtual=null; alert('Sua edição perdeu o bloqueio porque outro usuário assumiu o registro. Nada foi salvo para evitar sobrescrever informações.'); return false; }
