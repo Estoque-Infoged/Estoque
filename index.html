@@ -541,10 +541,8 @@ function limparBloqueiosExpirados(){ const agora=Date.now(); const bloqueios=get
 function adquirirBloqueioEdicao(tipo,id){
  atualizarBloqueiosEdicaoAntesDeAbrir();
  const chave=chaveBloqueioEdicao(tipo,id); const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[chave];
- if(atual && atual.sessao!==idSessaoEdicao){ alert('Este registro está sendo editado por '+(atual.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
+ if(atual && atual.sessao!==idSessaoEdicao && atual.usuario!==nomeUsuarioEdicao()){ alert('Este registro está sendo editado por '+(atual.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
  const agora=Date.now(); bloqueios[chave]={sessao:idSessaoEdicao,usuario:nomeUsuarioEdicao(),abertoEm:atual?.abertoEm||agora,expiraEm:agora+TEMPO_BLOQUEIO_EDICAO_MS}; saveBloqueiosEdicao(bloqueios);
- atualizarBloqueiosEdicaoAntesDeAbrir(); const confirmado=getBloqueiosEdicao()[chave];
- if(confirmado && confirmado.sessao!==idSessaoEdicao){ alert('Este registro acabou de ser aberto por '+(confirmado.usuario||'outro usuário')+'.\n\nModo somente leitura: aguarde a pessoa salvar ou fechar a edição antes de tentar novamente.'); return false; }
  bloqueioEdicaoAtual={chave,tipo,id}; return true;
 }
 function renovarBloqueioEdicao(){ if(!bloqueioEdicaoAtual)return; const bloqueios=limparBloqueiosExpirados(); const atual=bloqueios[bloqueioEdicaoAtual.chave]; if(!atual||atual.sessao!==idSessaoEdicao){bloqueioEdicaoAtual=null;return;} atual.expiraEm=Date.now()+TEMPO_BLOQUEIO_EDICAO_MS; bloqueios[bloqueioEdicaoAtual.chave]=atual; saveBloqueiosEdicao(bloqueios); }
