@@ -1641,7 +1641,7 @@ saveDB(db.filter(i => i.id !== id)); const pecasDetalhes=(item.pecas||[]).map(p=
 }
 
 function abrirModalStatus(id) { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; const item = getDB().find(i => i.id === id); if(item && !adquirirBloqueioEdicao('equipamento_status',item.id)) return; if(item) { document.getElementById('editId').value = item.id; document.getElementById('editStatus').value = item.status; modalStatus.show(); } }
-function salvarNovoStatus() { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; if(!validarBloqueioEdicao()) return; const id = parseInt(document.getElementById('editId').value); const novoStatus = document.getElementById('editStatus').value; const db = getDB(); const idx = db.findIndex(i => i.id === id); if(idx !== -1) { db[idx].status = novoStatus; saveDB(db); modalStatus.hide(); } }
+function salvarNovoStatus() { if(!exigirPermissao('equipamento_status','Você não tem permissão para alterar o status.')) return; if(!validarBloqueioEdicao()) return; const id = parseInt(document.getElementById('editId').value); const novoStatus = document.getElementById('editStatus').value; const db = getDB(); const idx = db.findIndex(i => i.id === id); if(idx !== -1) { db[idx].status = novoStatus; saveDB(db); liberarBloqueioEdicao(); modalStatus.hide(); } }
 
 function abrirModalEditarEquipamento(id) {
 if(!exigirPermissao('equipamento_editar','Você não tem permissão para editar equipamentos.')) return;
@@ -1684,7 +1684,7 @@ const estoque = getEstoqueDB();
 oldPecas.forEach(oldP => { const pecaEstoque = estoque.find(p => p.id === oldP.id); if(pecaEstoque) { pecaEstoque.quantidade -= oldP.quantidade; if(pecaEstoque.osVinculadas) { pecaEstoque.osVinculadas = pecaEstoque.osVinculadas.filter(v => v.os != osNumero); } } });
 newPecas.forEach(newP => { let pecaEstoque = estoque.find(p => p.id === newP.id); if(pecaEstoque) { pecaEstoque.quantidade += newP.quantidade; if(!pecaEstoque.osVinculadas) pecaEstoque.osVinculadas = []; const hasLink = pecaEstoque.osVinculadas.some(v => v.os == osNumero); if(!hasLink) { pecaEstoque.osVinculadas.push({ os: osNumero, data: new Date().toISOString(), quantidade: newP.quantidade }); } } else { estoque.push({ id: newP.id, codigo: newP.codigo, nome: newP.nome, quantidade: newP.quantidade, minimo: 1, obs: 'Vinculada à OS ' + osNumero, osVinculadas: [{ os: osNumero, data: new Date().toISOString(), quantidade: newP.quantidade }], dataCadastro: new Date().toISOString() }); } });
 
-db[idx].pecas = newPecas; saveDB(db); saveEstoqueDB(estoque); modalEditarEquipamento.hide(); alert('Equipamento e peças atualizados com sucesso!'); aplicarFiltros(); atualizarDashboard();
+db[idx].pecas = newPecas; saveDB(db); saveEstoqueDB(estoque); liberarBloqueioEdicao(); modalEditarEquipamento.hide(); alert('Equipamento e peças atualizados com sucesso!'); aplicarFiltros(); atualizarDashboard();
 }
 }
 
@@ -1855,7 +1855,7 @@ const nomeOriginal = document.getElementById('editClienteNomeOriginal').value; c
 if(!novoNome) return alert('Nome obrigatório.');
 const db = getDB(); let atualizou = false;
 db.forEach(eq => { if(eq.cliente === nomeOriginal) { eq.cliente = novoNome; atualizou = true; } });
-if(atualizou) { saveDB(db); atualizarListaClientes(); atualizarSugestoes(); modalEditarCliente.hide(); alert('Atualizado!'); }
+if(atualizou) { saveDB(db); liberarBloqueioEdicao(); atualizarListaClientes(); atualizarSugestoes(); modalEditarCliente.hide(); alert('Atualizado!'); }
 }
 
 function excluirCliente(nome) {
@@ -1887,7 +1887,7 @@ const nomeOriginal = document.getElementById('editModeloNomeOriginal').value; co
 if(!novoNome) return alert('Nome obrigatório.');
 const db = getDB(); let atualizou = false;
 db.forEach(eq => { if(eq.modelo === nomeOriginal) { eq.modelo = novoNome; atualizou = true; } });
-if(atualizou) { saveDB(db); atualizarListaModelos(); atualizarSugestoes(); modalEditarModelo.hide(); alert('Atualizado!'); }
+if(atualizou) { saveDB(db); liberarBloqueioEdicao(); atualizarListaModelos(); atualizarSugestoes(); modalEditarModelo.hide(); alert('Atualizado!'); }
 }
 
 function excluirModelo(nome) {
@@ -2127,7 +2127,7 @@ if(idx !== -1) {
  if(codigoDuplicado) return alert('Já existe outra peça cadastrada com o código "'+codigoDuplicado.codigo+'". Escolha um código diferente.');
 estoque[idx].codigo = novoCodigo; estoque[idx].modelo = novoModelo; estoque[idx].prateleira = novaPrateleira;
 estoque[idx].nome = novoNome; estoque[idx].quantidade = Number(novaQuantidade) || 0; estoque[idx].minimo = novoMinimo; estoque[idx].obs = novaObs;
- saveEstoqueDB(estoque); registrarAtividade('Peça editada','Peça: '+novoNome+'; código: '+(novoCodigo||'-')+'; código de barras: '+(estoque[idx].codigoBarras||obterCodigoBarrasEstoque(estoque[idx]))+'; modelo: '+(novoModelo||'-')+'; prateleira: '+(novaPrateleira||'-')+'; quantidade atual: '+novaQuantidade+(novaObs?' ; observação: '+novaObs:''),'Estoque'); modalEditarPeca.hide(); atualizarSugestoes(); alert('Peça atualizada com sucesso!');
+ saveEstoqueDB(estoque); liberarBloqueioEdicao(); registrarAtividade('Peça editada','Peça: '+novoNome+'; código: '+(novoCodigo||'-')+'; código de barras: '+(estoque[idx].codigoBarras||obterCodigoBarrasEstoque(estoque[idx]))+'; modelo: '+(novoModelo||'-')+'; prateleira: '+(novaPrateleira||'-')+'; quantidade atual: '+novaQuantidade+(novaObs?' ; observação: '+novaObs:''),'Estoque'); modalEditarPeca.hide(); atualizarSugestoes(); alert('Peça atualizada com sucesso!');
 }
 }
 
@@ -2349,7 +2349,7 @@ function salvarTecnico() {
  modalNovoTecnico.hide(); renderTabelaSenhasTecnicos();
 }
 function abrirEditarTecnico(id) { if(!exigirAdmin()) return; const tecnicos=getTecnicosDB(); const t=tecnicos.find(t=>t.id==id); if(t && !adquirirBloqueioEdicao('tecnico',t.id)) return; if(t){ document.getElementById('editTecnicoId').value=t.id; document.getElementById('editTecnicoNome').value=t.nome; document.getElementById('editTecnicoTelefone').value=t.telefone||''; document.getElementById('editTecnicoEmail').value=t.email||''; document.getElementById('editTecnicoSenha').value=''; modalEditarTecnico.show(); } }
-function salvarEdicaoTecnico() { if(!exigirAdmin()) return; if(!validarBloqueioEdicao()) return; const id=document.getElementById('editTecnicoId').value; const nome=document.getElementById('editTecnicoNome').value.trim(); const telefone=document.getElementById('editTecnicoTelefone').value.trim(); const email=document.getElementById('editTecnicoEmail').value.trim(); const senha=document.getElementById('editTecnicoSenha').value.trim(); if(!nome) return alert('Nome é obrigatório.'); const tecnicos=getTecnicosDB(); const idx=tecnicos.findIndex(t=>t.id==id); if(idx!==-1){ tecnicos[idx].nome=nome; tecnicos[idx].telefone=telefone; tecnicos[idx].email=email; if(senha) tecnicos[idx].senha=senha; tecnicos[idx].permissoes=normalizarPermissoes(tecnicos[idx]); saveTecnicosDB(tecnicos); modalEditarTecnico.hide(); renderTabelaSenhasTecnicos(); alert('Técnico atualizado!'); } }
+function salvarEdicaoTecnico() { if(!exigirAdmin()) return; if(!validarBloqueioEdicao()) return; const id=document.getElementById('editTecnicoId').value; const nome=document.getElementById('editTecnicoNome').value.trim(); const telefone=document.getElementById('editTecnicoTelefone').value.trim(); const email=document.getElementById('editTecnicoEmail').value.trim(); const senha=document.getElementById('editTecnicoSenha').value.trim(); if(!nome) return alert('Nome é obrigatório.'); const tecnicos=getTecnicosDB(); const idx=tecnicos.findIndex(t=>t.id==id); if(idx!==-1){ tecnicos[idx].nome=nome; tecnicos[idx].telefone=telefone; tecnicos[idx].email=email; if(senha) tecnicos[idx].senha=senha; tecnicos[idx].permissoes=normalizarPermissoes(tecnicos[idx]); saveTecnicosDB(tecnicos); liberarBloqueioEdicao(); modalEditarTecnico.hide(); renderTabelaSenhasTecnicos(); alert('Técnico atualizado!'); } }
  function excluirTecnico(id) { if(!exigirAdmin()) return; if(confirm('Excluir técnico?')) { const tecnicos = getTecnicosDB(); const tecnico=tecnicos.find(t=>String(t.id)===String(id)); saveTecnicosDB(tecnicos.filter(t => t.id != id)); registrarAtividade('Técnico excluído','Técnico removido: '+(tecnico?.nome||'ID '+id)+'; telefone: '+(tecnico?.telefone||'-')+'; e-mail: '+(tecnico?.email||'-'),'Técnicos'); renderTabelaPermissoesTecnicos(); } }
 
 // Garantias de permissão em ações de consumo
